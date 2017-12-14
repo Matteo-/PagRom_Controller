@@ -1,0 +1,10 @@
+system:
+	python3
+	pip3
+	mysql-server
+	libmysqlclient-dev
+	python3-mysqldb
+
+python3:
+	pyserial
+	python-telegram-bot --upgrade
