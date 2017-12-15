@@ -76,11 +76,18 @@ def dataParser(datain):
 		data[name] = value
 	return data
 
-#connessione automatica ad arduino
+"""
+####### connessione tramite handshake #######
+#	python----connect---->Arduino			#
+#	python<---"handshake"----Arduino		#
+#	connection DONE!						#
+#############################################
+"""
 ports = list(serial.tools.list_ports.comports())
 for p in ports:
 	try:
 		ser = serial.Serial(p.device, baudrate)
+		#TODO sostituire con readline e timeout di 2 secondi
 		time.sleep(0.9) #evito che arduino vada in reset
 		if readArduino(ser).strip() == "handshake":
 			connected = True
