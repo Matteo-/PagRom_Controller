@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+#TODO ogni sezione dovra diventare un oggetto
 ##################################### DataBase #################################
 ''' serve python-mysqldb --> apt install python-mysqldb '''
 import MySQLdb
@@ -37,38 +38,14 @@ def closeDataBase():
 
 ##################################### Arduino ##################################
 import serial
+import serial.tools.list_ports
 import time
 
 #TODO trrovarla automaticamente trramite haandshake coon arrduino
 #porta di collegamento con arduino
-port = '/dev/ttyUSB0'
+ser = serial.Serial()
 baudrate = 9600
 connected = False;
-
-#connessione automatica ad arduino
-for i in range(256):
-	try:
-		ser = serial.Serial(i, baudrate)
-		if readArduino(ser) == "handshake":
-			connected = True
-			break
-		else:
-			ser.close()
-	except serial.SerialException:
-		pass
-#controllo il risultato
-if connected:
-	print("[SERIALE] connesso")
-else:
-	print("[SERIALE] non connesso")
-'''
-try:
-	ser = serial.Serial(port, baudrate)
-except:
-	print("[SERIALE] errore durante la connesione")
-'''
-#evito che arduino vada in reset
-time.sleep(1)
 
 #TODO mandare ad arduino il tempo di intervallo*2 e farglielo impostare
 #tempo di intervallo in secondi
@@ -82,8 +59,11 @@ def closeSerial(connection):
 #leggo i valori provenienti da arduino
 def readArduino(connection):
 	out = b""
-	while(connection.inWaiting() > 0):
-		out += ser.read(1)    
+	try:
+		while(connection.inWaiting() > 0):
+			out += ser.read(1)
+	except:
+		print("[SERIALE] errore nella connessione con arduino")    
 
 	return out.decode()
 
@@ -95,6 +75,27 @@ def dataParser(datain):
 		name,value = el.split(":")
 		data[name] = value
 	return data
+
+#connessione automatica ad arduino
+ports = list(serial.tools.list_ports.comports())
+for p in ports:
+	try:
+		ser = serial.Serial(p.device, baudrate)
+		time.sleep(0.9) #evito che arduino vada in reset
+		if readArduino(ser).strip() == "handshake":
+			connected = True
+			break
+		else:
+			ser.close()
+	except serial.SerialException:
+		pass
+
+#controllo il risultato
+if connected:
+	print("[SERIALE] arduino connesso")
+else:
+	print("[SERIALE] arduino non trovato")
+	quit()
 
 #ciclo di lettura
 ''' verrà sostituito da un job del bot '''
