@@ -1,0 +1,5 @@
+db_host=localhost
+db_user=usermane
+db_passwd=password
+db_name=CIA
+bot_token=jhfashafcaehfskshdvkdfjhslkjsdfjhgdsa<h

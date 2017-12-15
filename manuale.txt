@@ -1,0 +1,10 @@
+manuale di utilizzo:
+sto pensando a cosa scrivere:
+	calma:
+		-non agitatevi
+	
+	/help spawna questo manuale
+	
+	/temp legge le temperature 
+
+in caso di esplosione chiamare matteo

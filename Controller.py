@@ -1,22 +1,47 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #TODO ogni sezione dovra diventare un oggetto
+################################## Config utils ################################
+def leggi_file(file):
+    f = open(file, "r") 
+    return f.read().strip()
+
+'''
+formatta i dati provenienti da arduino 
+dividendoli in un dizionario
+se i dati non sono formattabili 
+ritorna dizionario vuoto
+'''
+def dataParser(datain):
+    data = {}
+    #splitto la stringa nei vari elementi
+    try:
+        elements = datain.strip().split()
+        for el in elements:
+            name,value = el.split("=")
+            data[name] = value
+    except:
+        pass
+    return data
+
+'''
+dizionario che contiene tutte le configurazioni del Controller
+'''
+config = dataParser(leggi_file("config.txt"))
+
 ##################################### DataBase #################################
 ''' serve python-mysqldb --> apt install python-mysqldb '''
 import MySQLdb
 import getpass
 
-name = "PagRom"
-pspw = getpass.getpass("[DATABASE] inserisci password per "+name+":")
-
 try:
-	db_connection = MySQLdb.connect(host="localhost",
-		                 user=name,
-		                 passwd=pspw,
-		                 db="PagRom_Caldaia")
-	print("[DATABASE] connesso")
+    db_connection = MySQLdb.connect(host=config['db_host'],
+                         user=config['db_user'],
+                         passwd=config['db_passwd'],
+                         db=config['db_name'])
+    print("[DATABASE] connesso")
 except:
-    print("[DATABASE] I am unable to connect to the database")
+    print("[DATABASE] non riesco a connettermi al database")
     quit()
 
 # creo il cursore per utilizzare il database
@@ -29,12 +54,12 @@ db = db_connection.cursor()
 
 #eseguo la query e aggiorno il database
 def DBexecute(query):
-	db.execute(query)
-	db_connection.commit()
+    db.execute(query)
+    db_connection.commit()
 
 #chiude la connessione con il database
 def closeDataBase():
-	db_connection.close()
+    db_connection.close()
 
 ##################################### Arduino ##################################
 import serial
@@ -53,37 +78,39 @@ interval = 0.5
 
 #dati prrovenienti da arduino
 lettura = {}
+
+def aggiorna_dati(new_data):
+    #print("[ARDUINO] aggiorno dati")
+    #print("new: "+str(new_data))
+    try:
+        global lettura
+        lettura = new_data
+    except Exception as ex:
+        print(ex)
+    #print("lettura: "+str(lettura))
+    #print("[ARDUINO] fine aggiorno dati")
+
+def get_all_data():
+    global lettura
+    return lettura
+    
+def getdata_byname(name):
+    global lettura
+    return lettura[name]
+
 def closeSerial(connection):
-	connection.close()
+    connection.close()
 
 #leggo i valori provenienti da arduino
 def readArduino(connection):
-	out = b""
-	try:
-		while(connection.inWaiting() > 0):
-			out += ser.read(1)
-	except:
-		print("[SERIALE] errore nella connessione con arduino")    
+    out = b""
+    try:
+        while(connection.inWaiting() > 0):
+            out += ser.read(1)
+    except:
+        print("[SERIALE] errore nella connessione con arduino")    
 
-	return out.decode()
-
-'''
-formatta i dati provenienti da arduino 
-dividendoli in un dizionario
-
-se i dati non sono formattabili ritorna dizionario vuoto
-'''
-def dataParser(datain):
-	data = {}
-	#splitto la stringa nei vari elementi
-	try:
-		elements = datain.strip().split()
-		for el in elements:
-			name,value = el.split(":")
-			data[name] = value
-	except:
-		pass
-	return data
+    return out.decode()
 
 """
 ####### connessione tramite handshake #######
@@ -94,38 +121,41 @@ def dataParser(datain):
 """
 ports = list(serial.tools.list_ports.comports())
 for p in ports:
-	try:
-		ser = serial.Serial(p.device, baudrate)
-		time.sleep(1) #evito che arduino vada in reset
-		if readArduino(ser).strip() == "handshake":
-			connected = True
-			break
-		else:
-			ser.close()
-	except serial.SerialException:
-		pass
+    try:
+        ser = serial.Serial(p.device, baudrate)
+        time.sleep(1) #evito che arduino vada in reset
+        if readArduino(ser).strip() == "handshake":
+            connected = True
+            break
+        else:
+            ser.close()
+    except serial.SerialException:
+        pass
 
 #controllo il risultato
 if connected:
-	print("[SERIALE] arduino connesso")
+    print("[SERIALE] arduino connesso")
 else:
-	print("[SERIALE] arduino non trovato")
-	quit()
+    print("[SERIALE] arduino non trovato")
+    quit()
 
-#ciclo di lettura
-''' verrà sostituito da un job del bot '''
+''' 
+ciclo di lettura
+verrà sostituito da un job del bot '''
+'''
 while(True):
-	raw_data = readArduino(ser)
-	if raw_data != "":
-		print(raw_data.strip())
-		lettura = dataParser(raw_data)
-		#in caso i dati siano corrotti o inesistenti
-		try:
-			print(lettura['Temp1'])
-			DBexecute("INSERT INTO temperatura (temp) VALUES ("+str(lettura['Temp1'])+")")
-		except:
-			pass
-	time.sleep(interval)
+    raw_data = readArduino(ser)
+    if raw_data != "":
+        print(raw_data.strip())
+        lettura = dataParser(raw_data)
+        #in caso i dati siano corrotti o inesistenti
+        try:
+            print(lettura['Temp1'])
+            DBexecute("INSERT INTO temperatura (temp) VALUES ("+str(lettura['Temp1'])+")")
+        except:
+            pass
+    time.sleep(interval)
+'''
 
 #appunti scrittura e lettura su seriale
 #scrittura
@@ -133,7 +163,7 @@ while(True):
 #lettura
 #out = b""
 #while(ser.inWaiting() > 0):
-#	out += ser.read(1)
+#    out += ser.read(1)
 #oppure (bloccante)
 #ser.readline()
 
@@ -145,39 +175,63 @@ while(True):
 #type(my_decoded_str) # ensure it is string representation
 
 ##################################### Telegram bot #############################
-"""Simple Bot to send timed Telegram messages.
-# This program is dedicated to the public domain under the CC0 license.
-This Bot uses the Updater class to handle the bot and the JobQueue to send
-timed messages.
-First, a few handler functions are defined. Then, those functions are passed to
-the Dispatcher and registered at their respective places.
-Then, the bot is started and runs until we press Ctrl-C on the command line.
-Usage:
-Basic Alarm Bot example, sends a message after a set time.
-Press Ctrl-C on the command line or send a signal to the process to stop the
-bot.
-"""
-
 from telegram.ext import Updater, CommandHandler
 import logging
 
 # Enable logging
-logging.basicConfig(format='%(asctime)s|%(levelname)s| %(message)s',
+logging.basicConfig(filename='Controller.log',
+                    format='%(asctime)s|%(levelname)s| %(message)s',
                     level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
-'''
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
 def start(bot, update):
-    update.message.reply_text('Hi! Use /set <seconds> to set a timer')
+    update.message.reply_text('ciao! usa /help per spawnare il manuale')
+    
+def help(bot, update):
+    try:
+        manuale = leggi_file("manuale.txt")
+        update.message.reply_text(manuale)
+    except Exception as ex:
+        print(ex)
+    
+def leggi_temp(none1, none2):
+    raw_data = readArduino(ser)
+    if raw_data != "":
+        #print(raw_data.strip())
+        tmp = dataParser(raw_data)
+        #controllo se ho letto daati coorretti e aggiorno
+        if tmp:
+            aggiorna_dati(tmp)
+            
+            try:
+                l = get_all_data()
+            except Exception as ex:
+                print(ex)
+            
+            print(str(get_all_data()))
+            #in caso i dati siano corrotti o inesistenti
+            try:
+                DBexecute("INSERT INTO temperatura (temp) VALUES ("+str(getdata_byname('Temp1'))+")")
+            except Exception as ex:
+                print(ex)
+            
+def temp(bot, update):
+    print("invio temperatura")
+    try:
+        print(get_all_data())
+        txt = "Temp pc: "+str(getdata_byname('Temp1'))+"°C\n"
+        txt += "Temp ambiente: "+str(getdata_byname('Temp2'))+"°C"
+        update.message.reply_text(txt)
+    except Exception as ex:
+        print(ex)
 
-
+'''
 def alarm(bot, job):
     """Send the alarm message."""
     bot.send_message(job.context, text='Beep!')
-
 
 def set_timer(bot, update, args, job_queue, chat_data):
     """Add a job to the queue."""
@@ -210,34 +264,44 @@ def unset(bot, update, chat_data):
     del chat_data['job']
 
     update.message.reply_text('Timer successfully unset!')
-
+'''
 
 def error(bot, update, error):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, error)
 
-
 def main():
     """Run bot."""
-    updater = Updater("TOKEN")
+    updater = Updater(config['bot_token'])
+    
+    #creo il job che legge da arduino
+    j = updater.job_queue
+    job_leggi_temp = j.run_repeating(leggi_temp, interval=interval, first=0)
+    #job_leggi_temp.enabled = True
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
 
     # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("help", start))
+    
+    dp.add_handler(CommandHandler("help", help))
+    dp.add_handler(CommandHandler("temp", temp))
+    
+    '''
     dp.add_handler(CommandHandler("set", set_timer,
                                   pass_args=True,
                                   pass_job_queue=True,
                                   pass_chat_data=True))
+    
     dp.add_handler(CommandHandler("unset", unset, pass_chat_data=True))
-
+    '''
     # log all errors
     dp.add_error_handler(error)
 
     # Start the Bot
     updater.start_polling()
+    print("[TELEGRAM_BOT] avviato")
 
     # Block until you press Ctrl-C or the process receives SIGINT, SIGTERM or
     # SIGABRT. This should be used most of the time, since start_polling() is
@@ -247,4 +311,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-'''

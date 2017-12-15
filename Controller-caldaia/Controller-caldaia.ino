@@ -25,10 +25,10 @@ void invioDati(){
    * legenda:
    * 
    */
-  Serial.print("Temp1:");
+  Serial.print("Temp1=");
   Serial.print(t1);
   Serial.print(" ");
-  Serial.print("Temp2:");
+  Serial.print("Temp2=");
   Serial.print(t2);
   Serial.println();
 }
