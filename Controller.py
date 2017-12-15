@@ -67,28 +67,36 @@ def readArduino(connection):
 
 	return out.decode()
 
+'''
+formatta i dati provenienti da arduino 
+dividendoli in un dizionario
+
+se i dati non sono formattabili ritorna dizionario vuoto
+'''
 def dataParser(datain):
 	data = {}
 	#splitto la stringa nei vari elementi
-	elements = datain.strip().split()
-	for el in elements:
-		name,value = el.split(":")
-		data[name] = value
+	try:
+		elements = datain.strip().split()
+		for el in elements:
+			name,value = el.split(":")
+			data[name] = value
+	except:
+		pass
 	return data
 
 """
 ####### connessione tramite handshake #######
-#	python----connect---->Arduino			#
-#	python<---"handshake"----Arduino		#
-#	connection DONE!						#
+#   python----connect---->Arduino           #
+#   python<---"handshake"----Arduino        #
+#   connection DONE!                        #
 #############################################
 """
 ports = list(serial.tools.list_ports.comports())
 for p in ports:
 	try:
 		ser = serial.Serial(p.device, baudrate)
-		#TODO sostituire con readline e timeout di 2 secondi
-		time.sleep(0.9) #evito che arduino vada in reset
+		time.sleep(1) #evito che arduino vada in reset
 		if readArduino(ser).strip() == "handshake":
 			connected = True
 			break
@@ -109,10 +117,14 @@ else:
 while(True):
 	raw_data = readArduino(ser)
 	if raw_data != "":
-		print(raw_data)
+		print(raw_data.strip())
 		lettura = dataParser(raw_data)
-		print(lettura['Temp1'])
-		DBexecute("INSERT INTO temperatura (temp) VALUES ("+str(lettura['Temp1'])+")")
+		#in caso i dati siano corrotti o inesistenti
+		try:
+			print(lettura['Temp1'])
+			DBexecute("INSERT INTO temperatura (temp) VALUES ("+str(lettura['Temp1'])+")")
+		except:
+			pass
 	time.sleep(interval)
 
 #appunti scrittura e lettura su seriale
@@ -145,17 +157,17 @@ Basic Alarm Bot example, sends a message after a set time.
 Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
-'''
+
 from telegram.ext import Updater, CommandHandler
 import logging
 
 # Enable logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+logging.basicConfig(format='%(asctime)s|%(levelname)s| %(message)s',
                     level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
-
+'''
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
 def start(bot, update):

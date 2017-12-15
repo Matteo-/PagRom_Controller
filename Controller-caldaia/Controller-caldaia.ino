@@ -30,6 +30,7 @@ void invioDati(){
   Serial.print(" ");
   Serial.print("Temp2:");
   Serial.print(t2);
+  Serial.println();
 }
 
 /**
