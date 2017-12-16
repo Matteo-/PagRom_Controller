@@ -1,10 +1,12 @@
 manuale di utilizzo:
-sto pensando a cosa scrivere:
-	calma:
-		-non agitatevi
+
+	comando /help
+	spawna questo manuale
 	
-	/help spawna questo manuale
+	comando /temp
+	legge le temperature
 	
-	/temp legge le temperature 
+	comando /status
+	mostra dimensione database 
 
 in caso di esplosione chiamare matteo

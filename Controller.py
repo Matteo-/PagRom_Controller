@@ -17,11 +17,16 @@ def dataParser(datain):
     #splitto la stringa nei vari elementi
     try:
         elements = datain.strip().split()
-        for el in elements:
+    except:
+        return data
+    
+    for el in elements:
+        try:
             name,value = el.split("=")
             data[name] = value
-    except:
-        pass
+        except:
+            pass
+
     return data
 
 '''
@@ -53,12 +58,16 @@ db = db_connection.cursor()
 #    print(row[0])
 
 #eseguo la query e aggiorno il database
+#ritorno il risultato della query
 def DBexecute(query):
+    global db
     db.execute(query)
     db_connection.commit()
+    return db.fetchall()
 
 #chiude la connessione con il database
 def closeDataBase():
+    global db_connection
     db_connection.close()
 
 ##################################### Arduino ##################################
@@ -139,24 +148,6 @@ else:
     print("[SERIALE] arduino non trovato")
     quit()
 
-''' 
-ciclo di lettura
-verrà sostituito da un job del bot '''
-'''
-while(True):
-    raw_data = readArduino(ser)
-    if raw_data != "":
-        print(raw_data.strip())
-        lettura = dataParser(raw_data)
-        #in caso i dati siano corrotti o inesistenti
-        try:
-            print(lettura['Temp1'])
-            DBexecute("INSERT INTO temperatura (temp) VALUES ("+str(lettura['Temp1'])+")")
-        except:
-            pass
-    time.sleep(interval)
-'''
-
 #appunti scrittura e lettura su seriale
 #scrittura
 #ser.write(b"H")
@@ -175,6 +166,7 @@ while(True):
 #type(my_decoded_str) # ensure it is string representation
 
 ##################################### Telegram bot #############################
+#TODO agiungere comando status, imposta temp minima, massima, critica, ecc
 from telegram.ext import Updater, CommandHandler
 import logging
 
@@ -196,24 +188,42 @@ def help(bot, update):
         update.message.reply_text(manuale)
     except Exception as ex:
         print(ex)
+
+'''
+#da mettere a posto
+def status(bot, update):
+    dim = {0:"KB", 1:"MB", 2:"GB"}
+    i = 0
+    update.message.reply_text("dimensione database: 100"+dim[1])
+    query_dim = """
+    SELECT SUM(data_length+index_length) AS dimensione
+    FROM INFORMATION_SCHEMA.TABLES 
+    WHERE table_schema = '"""+config['db_name']+"'"
+    try:
+        res = DBexecute(query_dim)
+        print(res)
+        for row in res:
+            print(str(row))
+            row = int(row)
+            while row > 1024:
+                row /= 1024
+                i += 1
+            update.message.reply_text("dimensione database: "+str(row)+dim[i])
+            print("OK")
+    except Exception as ex:
+        print(ex)
+'''
     
-def leggi_temp(none1, none2):
+def leggi_temp(bot, self):
     raw_data = readArduino(ser)
     if raw_data != "":
         #print(raw_data.strip())
         tmp = dataParser(raw_data)
         #controllo se ho letto daati coorretti e aggiorno
         if tmp:
-            aggiorna_dati(tmp)
-            
-            try:
-                l = get_all_data()
-            except Exception as ex:
-                print(ex)
-            
-            print(str(get_all_data()))
             #in caso i dati siano corrotti o inesistenti
             try:
+                aggiorna_dati(tmp)
                 DBexecute("INSERT INTO temperatura (temp) VALUES ("+str(getdata_byname('Temp1'))+")")
             except Exception as ex:
                 print(ex)
@@ -276,7 +286,7 @@ def main():
     
     #creo il job che legge da arduino
     j = updater.job_queue
-    job_leggi_temp = j.run_repeating(leggi_temp, interval=interval, first=0)
+    job_leggi_temp = j.run_repeating(leggi_temp, interval=1, first=0)
     #job_leggi_temp.enabled = True
 
     # Get the dispatcher to register handlers
@@ -287,6 +297,7 @@ def main():
     
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("temp", temp))
+    dp.add_handler(CommandHandler("status", status))
     
     '''
     dp.add_handler(CommandHandler("set", set_timer,
