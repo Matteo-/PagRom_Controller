@@ -14,9 +14,17 @@ ritorna dizionario vuoto
 '''
 def dataParser(datain):
     data = {}
+    elements = []
     #splitto la stringa nei vari elementi
     try:
-        elements = datain.strip().split()
+        row = datain.strip().split("\n")
+        for el in row:
+            try:
+                #elimino i commenti
+                if el[0] != '#':
+                    elements.extend(el.strip().split())
+            except:
+                pass
     except:
         return data
     
@@ -297,7 +305,7 @@ def main():
     
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("temp", temp))
-    dp.add_handler(CommandHandler("status", status))
+#    dp.add_handler(CommandHandler("status", status))
     
     '''
     dp.add_handler(CommandHandler("set", set_timer,
