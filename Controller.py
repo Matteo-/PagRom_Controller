@@ -45,38 +45,42 @@ config = dataParser(leggi_file("config.txt"))
 ##################################### DataBase #################################
 ''' serve python-mysqldb --> apt install python-mysqldb '''
 import MySQLdb
-import getpass
 
-try:
-    db_connection = MySQLdb.connect(host=config['db_host'],
-                         user=config['db_user'],
-                         passwd=config['db_passwd'],
-                         db=config['db_name'])
-    print("[DATABASE] connesso")
-except:
-    print("[DATABASE] non riesco a connettermi al database")
-    quit()
+class DataBase:
+    
+    def __init__(self, config):
+        try:
+            self.db_connection = MySQLdb.connect(host=config['db_host'],
+                                 user=config['db_user'],
+                                 passwd=config['db_passwd'],
+                                 db=config['db_name'])
+            print("[DATABASE] connesso")
+        except:
+            print("[DATABASE] non riesco a connettermi al database")
+            quit()
 
-# creo il cursore per utilizzare il database
-db = db_connection.cursor()
+        # creo il cursore per utilizzare il database
+        self.db = self.db_connection.cursor()
+
+    #eseguo la query e aggiorno il database
+    #ritorno il risultato della query
+    def execute(self, query):
+        self.db.execute(query)
+        self.db_connection.commit()
+        return self.db.fetchall()
+
+    #chiude la connessione con il database
+    def closeDataBase():
+        global db_connection
+        db_connection.close()
 
 # esempi di utilizzo
 #db.execute("SHOW TABLES")
 #for row in db.fetchall():
 #    print(row[0])
 
-#eseguo la query e aggiorno il database
-#ritorno il risultato della query
-def DBexecute(query):
-    global db
-    db.execute(query)
-    db_connection.commit()
-    return db.fetchall()
-
-#chiude la connessione con il database
-def closeDataBase():
-    global db_connection
-    db_connection.close()
+#creo database
+db = DataBase(config)
 
 ##################################### Arduino ##################################
 import serial
@@ -208,7 +212,7 @@ def status(bot, update):
     FROM INFORMATION_SCHEMA.TABLES 
     WHERE table_schema = '"""+config['db_name']+"'"
     try:
-        res = DBexecute(query_dim)
+        res = db.execute(query_dim)
         print(res)
         for row in res:
             print(str(row))
@@ -232,7 +236,7 @@ def leggi_temp(bot, self):
             #in caso i dati siano corrotti o inesistenti
             try:
                 aggiorna_dati(tmp)
-                DBexecute("INSERT INTO temperatura (temp) VALUES ("+str(getdata_byname('Temp1'))+")")
+                db.execute("INSERT INTO temperatura (temp) VALUES ("+str(getdata_byname('Temp1'))+")")
             except Exception as ex:
                 print(ex)
             
