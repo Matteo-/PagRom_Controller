@@ -26,10 +26,47 @@ seriale
 #type(my_decoded_str) # ensure it is string representation
 
 
-idea teleruttori:
+idea rilevamento teleruttori:
       +v   +v   +v
       |    |    |
       * -- * -- *-- __
          3   2    1  |
                      |
                     arduino
+                    
+funzionalita:
+
+    -lettura e invio messaggio con tutte le informazioni
+
+    -permettere il settaggio della temporizzazione 
+     e della quantita di segatura inserita
+     
+    -quando non finisce segatura (se sulla bilancia non arriva segatura quando richiesto dopo un certo timeout)
+        -stop alla coclea (silos -> bilancia)
+        -dopo qualche minuto(5) stop alla coclea (bilancia -> caldaia)
+    
+    -permettere il settaggio delle temperature massima, minima, critica
+        -raggiungimento temperatura
+            -massima:   +stop richiesta segatura 
+                        +spegnere coclea(bilancia -> caldaia) dopo qualche minuto)
+                        +inviare messaggio di allerta
+        
+            -minima:    +inviare messaggio di allerta
+            
+            -critica:   +inviare messagio di allerta
+                        +fermare qualsiasi invio di segatura immediatamente
+                        
+    -
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
