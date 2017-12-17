@@ -166,13 +166,27 @@ class ComArduino:
 ino = ComArduino(config)
 
 ##################################### Telegram bot #############################
-#TODO agiungere comando status, imposta temp minima, massima, critica, ecc
-from telegram.ext import Updater, CommandHandler
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
 def start(bot, update):
-    update.message.reply_text('ciao! usa /help per spawnare il manuale')
+    keyboard = [[InlineKeyboardButton("Option 1", callback_data='1'),
+                 InlineKeyboardButton("Option 2", callback_data='2')],
+
+                [InlineKeyboardButton("Option 3", callback_data='3')]]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    update.message.reply_text('ciao! usa /help per spawnare il manuale', reply_markup=reply_markup)
+    
+def menu(bot, update):
+    query = update.callback_query
+
+    bot.edit_message_text(text="Selected option: {}".format(query.data),
+                          chat_id=query.message.chat_id,
+                          message_id=query.message.message_id)
     
 def help(bot, update):
     try:
@@ -289,6 +303,7 @@ def main():
 
     # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("start", start))
+    updater.dispatcher.add_handler(CallbackQueryHandler(menu))
     
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("temp", temp))
