@@ -1,5 +1,22 @@
+################################################################################
+# file di configurazione per il Controller                                     #
+#                                                                              #
+# usa # per commentare                                                         #
+#                                                                              #
+# formato:                                                                     #
+#   nome=valore                                                                #
+#                                                                              #
+################################################################################
+
+#impostazioni database:
 db_host=localhost
-db_user=usermane
+db_user=username
 db_passwd=password
 db_name=CIA
-bot_token=jhfashafcaehfskshdvkdfjhslkjsdfjhgdsa<h
+
+#impostazioni comunicazione con arduino
+ino_boudrate=9600
+
+#impostazioni bot telegram
+bot_token=645676:JLDFCSDKJHfshfHACKERhwalhdvWKWNCJ
+bot_lingua=it

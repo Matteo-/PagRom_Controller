@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #TODO ogni sezione dovra diventare un oggetto
-################################## Config utils ################################
+################################## utils #######################################
+import logging
+
+# abilito il log
+logging.basicConfig(filename='Controller.log',
+                    format='%(asctime)s|%(levelname)s| %(message)s',
+                    level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+
 def leggi_file(file):
     f = open(file, "r") 
     return f.read().strip()
@@ -74,11 +83,6 @@ class DataBase:
         global db_connection
         db_connection.close()
 
-# esempi di utilizzo
-#db.execute("SHOW TABLES")
-#for row in db.fetchall():
-#    print(row[0])
-
 #creo database
 db = DataBase(config)
 
@@ -86,108 +90,84 @@ db = DataBase(config)
 import serial
 import serial.tools.list_ports
 import time
+import datetime
 
-#TODO trrovarla automaticamente trramite haandshake coon arrduino
-#porta di collegamento con arduino
-ser = serial.Serial()
-baudrate = 9600
-connected = False;
-
-#TODO mandare ad arduino il tempo di intervallo*2 e farglielo impostare
-#tempo di intervallo in secondi
-interval = 0.5
-
-#dati prrovenienti da arduino
-lettura = {}
-
-def aggiorna_dati(new_data):
-    #print("[ARDUINO] aggiorno dati")
-    #print("new: "+str(new_data))
-    try:
-        global lettura
-        lettura = new_data
-    except Exception as ex:
-        print(ex)
-    #print("lettura: "+str(lettura))
-    #print("[ARDUINO] fine aggiorno dati")
-
-def get_all_data():
-    global lettura
-    return lettura
+class ComArduino:
     
-def getdata_byname(name):
-    global lettura
-    return lettura[name]
+    def __init__(self, coonfig):
+        
+        self.ser = serial.Serial()
+        self.baudrate = config['ino_boudrate']
+        #dati prrovenienti da arduino
+        self.lettura = {}
+        
+        self.connect()
+        
+    def get_all_data(self):
+        return self.lettura
+    
+    def get_by_name(self, name):
+        return self.lettura[name]
 
-def closeSerial(connection):
-    connection.close()
+    def close():
+        self.ser.close()
 
-#leggo i valori provenienti da arduino
-def readArduino(connection):
-    out = b""
-    try:
-        while(connection.inWaiting() > 0):
-            out += ser.read(1)
-    except:
-        print("[SERIALE] errore nella connessione con arduino")    
-
-    return out.decode()
-
-"""
-####### connessione tramite handshake #######
-#   python----connect---->Arduino           #
-#   python<---"handshake"----Arduino        #
-#   connection DONE!                        #
-#############################################
-"""
-ports = list(serial.tools.list_ports.comports())
-for p in ports:
-    try:
-        ser = serial.Serial(p.device, baudrate)
-        time.sleep(1) #evito che arduino vada in reset
-        if readArduino(ser).strip() == "handshake":
-            connected = True
-            break
+    #leggo i valori provenienti da arduino
+    def read(self, raw=False):
+        out = b""
+        try:
+            while(self.ser.inWaiting() > 0):
+                out += self.ser.read(1)
+        except:
+            print("[SERIALE] errore nella connessione con arduino")  
+        
+        if not raw: 
+            try:
+                if out.decode() != "":
+                    self.lettura = dataParser(out.decode())
+                    self.lettura['date'] = '{:%d-%b-%Y %H:%M:%S}'.format(datetime.datetime.now())
+            except Exception as ex:
+                print(ex)  
+            return self.lettura
         else:
-            ser.close()
-    except serial.SerialException:
-        pass
+            return out.decode()
 
-#controllo il risultato
-if connected:
-    print("[SERIALE] arduino connesso")
-else:
-    print("[SERIALE] arduino non trovato")
-    quit()
+    
+    """
+    ####### connessione tramite handshake #######
+    #   python----connect---->Arduino           #
+    #   python<---"handshake"----Arduino        #
+    #   connection DONE!                        #
+    #############################################
+    """
+    def connect(self):
+    
+        ports = list(serial.tools.list_ports.comports())
+        for p in ports:
+            try:
+                self.ser = serial.Serial(p.device, self.baudrate)
+                time.sleep(1) #evito che arduino vada in reset
+                if self.read(raw=True).strip() == "handshake":
+                    break
+                else:
+                    ser.close()
+            except serial.SerialException as ex:
+                print(ex)
+        print("[SERIALE] arduino connesso")
+        '''
+        #controllo il risultato usare ser per valutare la connesione
+        if connected:
+            print("[SERIALE] arduino connesso")
+        else:
+            print("[SERIALE] arduino non trovato")
+            quit()
+        '''
 
-#appunti scrittura e lettura su seriale
-#scrittura
-#ser.write(b"H")
-#lettura
-#out = b""
-#while(ser.inWaiting() > 0):
-#    out += ser.read(1)
-#oppure (bloccante)
-#ser.readline()
-
-#appunti per codifica e decodifica
-#my_str = "hello world"
-#my_str_as_bytes = str.encode(my_str)
-#type(my_str_as_bytes) # ensure it is byte representation
-#my_decoded_str = my_str_as_bytes.decode()
-#type(my_decoded_str) # ensure it is string representation
+ino = ComArduino(config)
 
 ##################################### Telegram bot #############################
 #TODO agiungere comando status, imposta temp minima, massima, critica, ecc
 from telegram.ext import Updater, CommandHandler
-import logging
-
-# Enable logging
-logging.basicConfig(filename='Controller.log',
-                    format='%(asctime)s|%(levelname)s| %(message)s',
-                    level=logging.INFO)
-
-logger = logging.getLogger(__name__)
 
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
@@ -225,30 +205,33 @@ def status(bot, update):
     except Exception as ex:
         print(ex)
 '''
-    
+
+last_read = 0
 def leggi_temp(bot, self):
-    raw_data = readArduino(ser)
-    if raw_data != "":
-        #print(raw_data.strip())
-        tmp = dataParser(raw_data)
-        #controllo se ho letto daati coorretti e aggiorno
-        if tmp:
+    ino.read()
+    try:
+        if ino.get_by_name('date') != last_read:
             #in caso i dati siano corrotti o inesistenti
+            last_read = ino.get_by_name('date')
             try:
-                aggiorna_dati(tmp)
-                db.execute("INSERT INTO temperatura (temp) VALUES ("+str(getdata_byname('Temp1'))+")")
+                db.execute("INSERT INTO temperatura (temp) VALUES ("+str(ino.get_by_name('Temp1'))+")")
             except Exception as ex:
                 print(ex)
+    except:
+        pass
+        #print(ex)
             
 def temp(bot, update):
-    print("invio temperatura")
     try:
-        print(get_all_data())
-        txt = "Temp pc: "+str(getdata_byname('Temp1'))+"°C\n"
-        txt += "Temp ambiente: "+str(getdata_byname('Temp2'))+"°C"
+        print("invio temperatura")
+        print(ino.get_all_data())
+        txt = "data ultima lettura: "+ino.get_by_name('date')+"\n\n"
+        txt += "Temp pc: "+str(ino.get_by_name('Temp1'))+"°C\n"
+        txt += "Temp ambiente: "+str(ino.get_by_name('Temp2'))+"°C"
         update.message.reply_text(txt)
     except Exception as ex:
-        print(ex)
+        #print(ex)
+        pass
 
 '''
 def alarm(bot, job):
