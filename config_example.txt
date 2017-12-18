@@ -6,17 +6,23 @@
 # formato:                                                                     #
 #   nome=valore                                                                #
 #                                                                              #
+# i prefissi servono solo per chiarezza                                        #
+#                                                                              #
 ################################################################################
 
-#impostazioni database:
+#impostazioni database: (prefisso db_ )
 db_host=localhost
 db_user=username
 db_passwd=password
 db_name=CIA
 
-#impostazioni comunicazione con arduino
+#impostazioni comunicazione con arduino: (prefisso ino_ )
 ino_boudrate=9600
 
-#impostazioni bot telegram
-bot_token=645676:JLDFCSDKJHfshfHACKERhwalhdvWKWNCJ
+#impostazioni bot telegram: (prefisso bot_ )
+bot_token=684623742:DQLKJjhbelskbaLJKQWBSbkjhbbJKHVGWEIJ
 bot_lingua=it
+#intervallo di tempo tra una lettura e l'altra
+bot_timer=1
+#avviso di connessione persa con arduino spedito dopo tot secondi
+bot_arduino_timeout=60
