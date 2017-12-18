@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #TODO ogni sezione dovra diventare un oggetto
 ################################## utils #######################################
@@ -51,6 +51,27 @@ dizionario che contiene tutte le configurazioni del Controller
 '''
 config = dataParser(leggi_file("config.txt"))
 
+##################################### Emoji ####################################
+from emoji import emojize
+#url emoji http://www.unicode.org/emoji/charts/emoji-list.html
+
+emojilist = {}
+#emojilist['sviluppatore'] = emojize(":man technologist:", use_aliases=True)
+emojilist['OK'] = emojize(":OK hand:", use_aliases=True)
+emojilist['pollicesu'] = emojize(":thumbs up:", use_aliases=True)
+emojilist['lucepericolo'] = emojize(":police car light:", use_aliases=True)
+emojilist['timer'] = emojize(":timer clock:", use_aliases=True)
+emojilist['avviso'] = emojize(":megaphone:", use_aliases=True)
+emojilist['telescopio'] = emojize(":telescope:", use_aliases=True)
+emojilist['chart'] = emojize(":chart increasing:", use_aliases=True)
+emojilist['lucchetto'] = emojize(":locked:", use_aliases=True)
+emojilist['avviso'] = emojize(":warning:", use_aliases=True)
+emojilist['spunta_ok'] = emojize(":heavy check mark:", use_aliases=True)
+emojilist['croce_non_ok'] = emojize(":cross mark:", use_aliases=True)
+emojilist['romania'] = emojize(":Romania:", use_aliases=True)
+emojilist['italia'] = emojize(":Italy:", use_aliases=True)
+emojilist['inglese'] = emojize(":United Kingdom:", use_aliases=True)
+
 ##################################### DataBase #################################
 ''' serve python-mysqldb --> apt install python-mysqldb '''
 import MySQLdb
@@ -102,6 +123,8 @@ class ComArduino:
         self.lettura = {}
         
         self.connect()
+        #TODO controllare connessione attraverso pyserial
+        print("[SERIALE] arduino connesso")
         
     def get_all_data(self):
         return self.lettura
@@ -119,7 +142,9 @@ class ComArduino:
             while(self.ser.inWaiting() > 0):
                 out += self.ser.read(1)
         except:
-            print("[SERIALE] errore nella connessione con arduino")  
+            print("[SERIALE] errore nella connessione con arduino")
+            raise Exception('Reading error')
+            self.connect() 
         
         if not raw: 
             try:
@@ -141,7 +166,6 @@ class ComArduino:
     #############################################
     """
     def connect(self):
-    
         ports = list(serial.tools.list_ports.comports())
         for p in ports:
             try:
@@ -153,15 +177,6 @@ class ComArduino:
                     ser.close()
             except serial.SerialException as ex:
                 print(ex)
-        print("[SERIALE] arduino connesso")
-        '''
-        #controllo il risultato usare ser per valutare la connesione
-        if connected:
-            print("[SERIALE] arduino connesso")
-        else:
-            print("[SERIALE] arduino non trovato")
-            quit()
-        '''
 
 ino = ComArduino(config)
 
@@ -169,24 +184,23 @@ ino = ComArduino(config)
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+menulist = {}
+menulist['MENU'] = 0
+menulist['LEGGI_TEMP'] = 1 #auto()
+
+keyboard = [[InlineKeyboardButton("nop", callback_data=menulist['MENU']),
+             InlineKeyboardButton("leggi temperatura", callback_data=menulist['LEGGI_TEMP'])],
+            [InlineKeyboardButton("nop", callback_data='3')]]   
+
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
 def start(bot, update):
-    keyboard = [[InlineKeyboardButton("Option 1", callback_data='1'),
-                 InlineKeyboardButton("Option 2", callback_data='2')],
-
-                [InlineKeyboardButton("Option 3", callback_data='3')]]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    update.message.reply_text('ciao! usa /help per spawnare il manuale', reply_markup=reply_markup)
-    
-def menu(bot, update):
-    query = update.callback_query
-
-    bot.edit_message_text(text="Selected option: {}".format(query.data),
-                          chat_id=query.message.chat_id,
-                          message_id=query.message.message_id)
+    try:
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        update.message.reply_text('ciao! usa /help per spawnare il manuale', reply_markup=reply_markup)  
+    except Exception as ex:
+        print(ex)
     
 def help(bot, update):
     try:
@@ -220,10 +234,11 @@ def status(bot, update):
         print(ex)
 '''
 
+letture_perse = 0
 last_read = 0
 def leggi_temp(bot, self):
-    ino.read()
     try:
+        ino.read()
         if ino.get_by_name('date') != last_read:
             #in caso i dati siano corrotti o inesistenti
             last_read = ino.get_by_name('date')
@@ -231,11 +246,32 @@ def leggi_temp(bot, self):
                 db.execute("INSERT INTO temperatura (temp) VALUES ("+str(ino.get_by_name('Temp1'))+")")
             except Exception as ex:
                 print(ex)
-    except:
-        pass
-        #print(ex)
+    except Exception as ex:
+        print(ex) #debug
+        '''avviso quando il timout di comunicazione con arduino scade'''
+        #TODO capire perche non esegue il codice
+        letture_perse += 1
+        print("aumento letture") #debug
+        if letture_perse * int(config['bot_timer']) >= int(config['bot_arduino_timeout']):
+            txt = emojilist['avviso']+" c'è un problema di comunicazione "+emojilist['avviso']
+            txt += "\n\nnon riesco a comunicare con la caldaia\n\n"
+            txt += "controllare la connessione di arduino\n"
+            txt += "oppure contattare il prgrammatore"
             
-def temp(bot, update):
+            #TODO creare lista utenti autorizzati e mettere il controllo su ogni funzione 
+            #con un try (funzione controllo) funzione principale except mandare messaggio non autorizzato
+            print("invio avviso disconnessione")
+            try:
+                bot.send_message(chat_id="74544302", text=txt)
+                letture_perse = 0
+            except Exception as ex:
+                    print(ex)
+        else:
+            print("cacchio")
+        
+        
+            
+def temp(bot, update, chat_id=-1):
     try:
         print("invio temperatura")
         print(ino.get_all_data())
@@ -244,8 +280,22 @@ def temp(bot, update):
         txt += "Temp ambiente: "+str(ino.get_by_name('Temp2'))+"°C"
         update.message.reply_text(txt)
     except Exception as ex:
-        #print(ex)
-        pass
+        print(ex)
+        txt = emojilist['avviso']+" c'è un problema di comunicazione "+emojilist['avviso']
+        txt += "\n\nnon ci sono dati da mostrare\n\n"
+        txt += "controllare la connessione di arduino\n"
+        txt += "oppure contattare il prgrammatore"
+        
+        print(chat_id) #debug
+        try:
+            if chat_id == -1:
+                update.message.reply_text(txt)
+            else:
+                bot.send_message(chat_id=chat_id, text=txt)
+        except Exception as ex:
+            print(chat_id)
+            print(ex)
+                                  
 
 '''
 def alarm(bot, job):
@@ -288,6 +338,34 @@ def unset(bot, update, chat_data):
 def error(bot, update, error):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, error)
+    
+def menu_parser(bot, update):
+    try:
+        query = update.callback_query
+        '''
+        bot.edit_message_text(text="Selected option: {}".format(query.data),
+                              chat_id=query.message.chat_id,
+                              message_id=query.message.message_id)
+        '''
+        
+        print("[MENU] query.data: "+query.data+" type: "+str(type(query.data)))
+        # map the inputs to the function blocks
+        options = {menulist['LEGGI_TEMP'] : temp,
+                   #1 : sqr,
+                   #4 : sqr,
+                   #9 : sqr,
+                   #2 : even,
+                   #3 : prime,
+                   #5 : prime,
+                   #7 : prime,
+        }
+        
+        options[int(query.data)](bot, update, chat_id=query.message.chat_id)
+        
+        #bot.send_message(chat_id=query.message.chat_id, text="Selected option: {}".format(query.data))
+    except Exception as ex:
+        print(ex)
+    
 
 def main():
     """Run bot."""
@@ -295,7 +373,7 @@ def main():
     
     #creo il job che legge da arduino
     j = updater.job_queue
-    job_leggi_temp = j.run_repeating(leggi_temp, interval=1, first=0)
+    job_leggi_temp = j.run_repeating(leggi_temp, interval=int(config['bot_timer']), first=0)
     #job_leggi_temp.enabled = True
 
     # Get the dispatcher to register handlers
@@ -303,7 +381,7 @@ def main():
 
     # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("start", start))
-    updater.dispatcher.add_handler(CallbackQueryHandler(menu))
+    updater.dispatcher.add_handler(CallbackQueryHandler(menu_parser))
     
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("temp", temp))

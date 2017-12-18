@@ -7,6 +7,9 @@ job telegram
 https://github.com/python-telegram-bot/python-telegram-bot/wiki/Extensions-%E2%80%93-JobQueue
 http://python-telegram-bot.readthedocs.io/en/stable/telegram.ext.jobqueue.html
 
+emoji
+https://github.com/carpedm20/emoji
+
 seriale
 #appunti scrittura e lettura su seriale
 #scrittura
