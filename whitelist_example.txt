@@ -1,0 +1,3 @@
+#chat_id:username:privileges
+534565:admin:"rw"
+323424:user:"r"

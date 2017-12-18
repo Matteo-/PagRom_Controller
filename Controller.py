@@ -15,6 +15,12 @@ def leggi_file(file):
     f = open(file, "r") 
     return f.read().strip()
 
+val = -1 
+def auto():
+    global val
+    val += 1
+    return val
+
 '''
 formatta i dati provenienti da arduino 
 dividendoli in un dizionario
@@ -50,6 +56,28 @@ def dataParser(datain):
 dizionario che contiene tutte le configurazioni del Controller
 '''
 config = dataParser(leggi_file("config.txt"))
+
+'''
+whitelist per il controllo delle autorizzazioni
+ci possono essere 2 livelli 
+    -"r" privilegi di lettura:
+        da accesso a tutte le funzioni che permettono di leggere i dati
+    -"rw" privilegi di lettura e scrittura:
+        da accesso ad ogni tipo di funzione quindi possibilita di leggere e scrivere
+'''
+whitelist = {}
+def carica_whitelist():
+    global whitelist
+    lista = leggi_file("whitelist.txt").strip().split()
+    for row in lista:
+        try:
+            if row[0] is not '#':
+                chat_id,nome,privilegi = row.split(':')
+                whitelist[int(chat_id)] = {'nome':nome, 'privilegi':privilegi}
+        except:
+            pass
+
+carica_whitelist()
 
 ##################################### Emoji ####################################
 from emoji import emojize
@@ -142,9 +170,11 @@ class ComArduino:
                 out += self.ser.read(1)
         except:
             print("[SERIALE] errore nella connessione con arduino")
+            #pulisco i dati
             self.lettura = {}
+            #tento riconnessione
             self.close()
-            self.connect() 
+            self.connect()
             raise Exception('Reading error')
         
         if not raw: 
@@ -185,30 +215,53 @@ ino = ComArduino(config)
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+def auth(bot, chat_id, auth_lvl):
+    accesso = True
+    lvl = {'r':0, 'rw':1}
+    try:
+        if lvl[whitelist[chat_id]['privilegi']] < lvl[auth_lvl]:
+            accesso = False
+    except Exception as ex:
+        print(ex)
+        accesso = False
+    
+    if not accesso:
+        txt = "non hai i privilegi necessari per proseguire "+emojilist['lucchetto']
+        bot.send_message(chat_id=chat_id, text=txt)
+    return accesso
+    
+#diziaonario per indicizzare le voci di menu
 menulist = {}
-menulist['MENU'] = 0
-menulist['LEGGI_TEMP'] = 1 #auto()
+menulist['MENU'] = auto()
+menulist['LEGGI_TEMP'] = auto()
+menulist['RECONFIG'] = auto()
 
 keyboard = [[InlineKeyboardButton("nop", callback_data=menulist['MENU']),
              InlineKeyboardButton("leggi temperatura", callback_data=menulist['LEGGI_TEMP'])],
-            [InlineKeyboardButton("nop", callback_data='3')]]   
+            [InlineKeyboardButton("riconfigura", callback_data=menulist['RECONFIG'])]]   
 
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
 def start(bot, update):
-    try:
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        update.message.reply_text('ciao! usa /help per spawnare il manuale', reply_markup=reply_markup)  
-    except Exception as ex:
-        print(ex)
+    chat_id = update.message.chat_id
+    if auth(bot, chat_id, "r"):
+        try:
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            update.message.reply_text('ciao! usa /help per spawnare il manuale', reply_markup=reply_markup)  
+        except Exception as ex:
+            print(ex)
+    else:
+        print("tentativo entrata da parte di "+chat_id)
     
 def help(bot, update):
-    try:
-        manuale = leggi_file("manuale.txt")
-        update.message.reply_text(manuale)
-    except Exception as ex:
-        print(ex)
+    chat_id = update.message.chat_id
+    if auth(bot, chat_id, "r"):
+        try:
+            manuale = leggi_file("manuale.txt")
+            update.message.reply_text(manuale)
+        except Exception as ex:
+            print(ex)
 
 '''
 #da mettere a posto
@@ -259,11 +312,13 @@ def leggi_temp(bot, self):
             txt += "controllare la connessione di arduino\n"
             txt += "oppure contattare il programmatore"
             
-            #TODO creare lista utenti autorizzati e mettere il controllo su ogni funzione 
-            #con un try (funzione controllo) funzione principale except mandare messaggio non autorizzato
+            #TODO mettere il controllo su ogni funzione 
+            #con un if controllo(chat_id, livello autorizzazione["r" o "rw"]): esegui 
             print("invio avviso disconnessione")
             try:
-                bot.send_message(chat_id="74544302", text=txt)
+                #invio il problema a tutti gli utenti
+                for chat_id in whitelist.keys():
+                    bot.send_message(chat_id=chat_id, text=txt)
                 letture_perse = 0
             except Exception as ex:
                     print(ex)
@@ -281,31 +336,32 @@ def leggi_temp(bot, self):
         
           
 def temp(bot, update, chat_id=-1):
-    try:
-        #TODO fare anche il logging
-        print("invio temperatura")
-        print(ino.get_all_data())
-        
-        txt = "data ultima lettura: "+ino.get_by_name('date')+"\n\n"
-        txt += "Temp pc: "+str(ino.get_by_name('Temp1'))+"°C\n"
-        txt += "Temp ambiente: "+str(ino.get_by_name('Temp2'))+"°C"
-    except Exception as ex:
-        print(ex)
-        txt = emojilist['avviso']+" c'è un problema di comunicazione "+emojilist['avviso']
-        txt += "\n\nnon ci sono dati da mostrare\n\n"
-        txt += "controllare la connessione di arduino\n"
-        txt += "oppure contattare il programmatore"
-        
-    print(chat_id) #debug
-    try:
-        if chat_id == -1:
-            print("invio da /tmp")
-            update.message.reply_text(txt)
-        else:
-            print("invio da inline botton")
-            bot.send_message(chat_id=chat_id, text=txt)
-    except Exception as ex:
-        print("errore")
+    if auth(bot, chat_id, "r"):
+        try:
+            #TODO fare anche il logging
+            print("invio temperatura")
+            print(ino.get_all_data())
+            
+            txt = "data ultima lettura: "+ino.get_by_name('date')+"\n\n"
+            txt += "Temp pc: "+str(ino.get_by_name('Temp1'))+"°C\n"
+            txt += "Temp ambiente: "+str(ino.get_by_name('Temp2'))+"°C"
+        except Exception as ex:
+            print(ex)
+            txt = emojilist['avviso']+" c'è un problema di comunicazione "+emojilist['avviso']
+            txt += "\n\nnon ci sono dati da mostrare\n\n"
+            txt += "controllare la connessione di arduino\n"
+            txt += "oppure contattare il programmatore"
+            
+        print(chat_id) #debug
+        try:
+            if chat_id == -1:
+                print("invio da /tmp")
+                update.message.reply_text(txt)
+            else:
+                print("invio da inline botton")
+                bot.send_message(chat_id=chat_id, text=txt)
+        except Exception as ex:
+            print(ex)
                                   
 
 '''
@@ -350,6 +406,17 @@ def error(bot, update, error):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, error)
     
+def reconfig(bot, update, chat_id):
+    if auth(bot, chat_id, "rw"):
+        try:
+            global config
+            config = dataParser(leggi_file("config.txt"))
+            carica_whitelist()
+            txt = "Riconfigurato "+emojilist['spunta_ok']
+            bot.send_message(chat_id=chat_id, text=txt)
+        except Exception as ex:
+            print(ex)
+    
 def menu_parser(bot, update):
     try:
         query = update.callback_query
@@ -362,7 +429,7 @@ def menu_parser(bot, update):
         print("[MENU] query.data: "+query.data+" type: "+str(type(query.data)))
         # map the inputs to the function blocks
         options = {menulist['LEGGI_TEMP'] : temp,
-                   #1 : sqr,
+                   menulist['RECONFIG'] : reconfig,
                    #4 : sqr,
                    #9 : sqr,
                    #2 : even,
