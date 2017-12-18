@@ -100,9 +100,8 @@ class DataBase:
         return self.db.fetchall()
 
     #chiude la connessione con il database
-    def closeDataBase():
-        global db_connection
-        db_connection.close()
+    def close(self):
+        self.db_connection.close()
 
 #creo database
 db = DataBase(config)
@@ -132,7 +131,7 @@ class ComArduino:
     def get_by_name(self, name):
         return self.lettura[name]
 
-    def close():
+    def close(self):
         self.ser.close()
 
     #leggo i valori provenienti da arduino
@@ -143,8 +142,9 @@ class ComArduino:
                 out += self.ser.read(1)
         except:
             print("[SERIALE] errore nella connessione con arduino")
-            raise Exception('Reading error')
+            self.close()
             self.connect() 
+            raise Exception('Reading error')
         
         if not raw: 
             try:
@@ -236,21 +236,22 @@ def status(bot, update):
 
 letture_perse = 0
 last_read = 0
+
 def leggi_temp(bot, self):
+    '''
+    tento la lettura di arduino
+    se non riesco a leggere avvio la procedura di avviso
+    in caso di lettura corretta aggiorno il database
+    '''
     try:
         ino.read()
-        if ino.get_by_name('date') != last_read:
-            #in caso i dati siano corrotti o inesistenti
-            last_read = ino.get_by_name('date')
-            try:
-                db.execute("INSERT INTO temperatura (temp) VALUES ("+str(ino.get_by_name('Temp1'))+")")
-            except Exception as ex:
-                print(ex)
     except Exception as ex:
         print(ex) #debug
         '''avviso quando il timout di comunicazione con arduino scade'''
         #TODO capire perche non esegue il codice
+        global letture_perse
         letture_perse += 1
+        
         print("aumento letture") #debug
         if letture_perse * int(config['bot_timer']) >= int(config['bot_arduino_timeout']):
             txt = emojilist['avviso']+" c'è un problema di comunicazione "+emojilist['avviso']
@@ -266,13 +267,22 @@ def leggi_temp(bot, self):
                 letture_perse = 0
             except Exception as ex:
                     print(ex)
-        else:
-            print("cacchio")
+    else:
+        '''
+        qui procedo a elaborare i dati provenienti da arduino
+        '''
+        if ino.get_by_name('date') != last_read:
+            #in caso i dati siano corrotti o inesistenti
+            last_read = ino.get_by_name('date')
+            try:
+                db.execute("INSERT INTO temperatura (temp) VALUES ("+str(ino.get_by_name('Temp1'))+")")
+            except Exception as ex:
+                print(ex)
         
-        
-            
+          
 def temp(bot, update, chat_id=-1):
     try:
+        #TODO fare anche il logging
         print("invio temperatura")
         print(ino.get_all_data())
         txt = "data ultima lettura: "+ino.get_by_name('date')+"\n\n"
