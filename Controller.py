@@ -142,6 +142,7 @@ class ComArduino:
                 out += self.ser.read(1)
         except:
             print("[SERIALE] errore nella connessione con arduino")
+            self.lettura = {}
             self.close()
             self.connect() 
             raise Exception('Reading error')
@@ -243,21 +244,20 @@ def leggi_temp(bot, self):
     se non riesco a leggere avvio la procedura di avviso
     in caso di lettura corretta aggiorno il database
     '''
+    global letture_perse
     try:
         ino.read()
+        letture_perse = 0
     except Exception as ex:
         print(ex) #debug
         '''avviso quando il timout di comunicazione con arduino scade'''
         #TODO capire perche non esegue il codice
-        global letture_perse
         letture_perse += 1
-        
-        print("aumento letture") #debug
         if letture_perse * int(config['bot_timer']) >= int(config['bot_arduino_timeout']):
             txt = emojilist['avviso']+" c'è un problema di comunicazione "+emojilist['avviso']
             txt += "\n\nnon riesco a comunicare con la caldaia\n\n"
             txt += "controllare la connessione di arduino\n"
-            txt += "oppure contattare il prgrammatore"
+            txt += "oppure contattare il programmatore"
             
             #TODO creare lista utenti autorizzati e mettere il controllo su ogni funzione 
             #con un try (funzione controllo) funzione principale except mandare messaggio non autorizzato
@@ -285,26 +285,27 @@ def temp(bot, update, chat_id=-1):
         #TODO fare anche il logging
         print("invio temperatura")
         print(ino.get_all_data())
+        
         txt = "data ultima lettura: "+ino.get_by_name('date')+"\n\n"
         txt += "Temp pc: "+str(ino.get_by_name('Temp1'))+"°C\n"
         txt += "Temp ambiente: "+str(ino.get_by_name('Temp2'))+"°C"
-        update.message.reply_text(txt)
     except Exception as ex:
         print(ex)
         txt = emojilist['avviso']+" c'è un problema di comunicazione "+emojilist['avviso']
         txt += "\n\nnon ci sono dati da mostrare\n\n"
         txt += "controllare la connessione di arduino\n"
-        txt += "oppure contattare il prgrammatore"
+        txt += "oppure contattare il programmatore"
         
-        print(chat_id) #debug
-        try:
-            if chat_id == -1:
-                update.message.reply_text(txt)
-            else:
-                bot.send_message(chat_id=chat_id, text=txt)
-        except Exception as ex:
-            print(chat_id)
-            print(ex)
+    print(chat_id) #debug
+    try:
+        if chat_id == -1:
+            print("invio da /tmp")
+            update.message.reply_text(txt)
+        else:
+            print("invio da inline botton")
+            bot.send_message(chat_id=chat_id, text=txt)
+    except Exception as ex:
+        print("errore")
                                   
 
 '''
