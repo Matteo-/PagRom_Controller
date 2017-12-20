@@ -72,8 +72,8 @@ def carica_whitelist():
     for row in lista:
         try:
             if row[0] is not '#':
-                chat_id,nome,privilegi = row.split(':')
-                whitelist[int(chat_id)] = {'nome':nome, 'privilegi':privilegi}
+                chat_id,nome,lingua,privilegi = row.split(':')
+                whitelist[int(chat_id)] = {'nome':nome, 'privilegi':privilegi, 'lingua':lingua}
         except:
             pass
 
@@ -214,6 +214,7 @@ ino = ComArduino(config)
 ##################################### Telegram bot #############################
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+import gettext
 
 def auth(bot, chat_id, auth_lvl):
     accesso = True
@@ -226,7 +227,7 @@ def auth(bot, chat_id, auth_lvl):
         accesso = False
     
     if not accesso:
-        txt = "non hai i privilegi necessari per proseguire "+emojilist['lucchetto']
+        txt = _("non hai i privilegi necessari per proseguire ")+emojilist['lucchetto']
         bot.send_message(chat_id=chat_id, text=txt)
     return accesso
     
@@ -235,10 +236,11 @@ menulist = {}
 menulist['MENU'] = auto()
 menulist['LEGGI_TEMP'] = auto()
 menulist['RECONFIG'] = auto()
+menulist['HELP'] = auto()
 
-keyboard = [[InlineKeyboardButton("nop", callback_data=menulist['MENU']),
-             InlineKeyboardButton("leggi temperatura", callback_data=menulist['LEGGI_TEMP'])],
-            [InlineKeyboardButton("riconfigura", callback_data=menulist['RECONFIG'])]]   
+keyboard = [[InlineKeyboardButton(_("help"), callback_data=menulist['HELP']),
+             InlineKeyboardButton(_("leggi temperatura"), callback_data=menulist['LEGGI_TEMP'])],
+            [InlineKeyboardButton(_("riconfigura"), callback_data=menulist['RECONFIG'])]]   
 
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
@@ -248,13 +250,13 @@ def start(bot, update):
         try:
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            update.message.reply_text('ciao! usa /help per spawnare il manuale', reply_markup=reply_markup)  
+            update.message.reply_text(_("ciao! usa /help per spawnare il manuale"), reply_markup=reply_markup)  
         except Exception as ex:
             print(ex)
     else:
         print("tentativo entrata da parte di "+chat_id)
     
-def help(bot, update):
+def help(bot, update, chat_id):
     chat_id = update.message.chat_id
     if auth(bot, chat_id, "r"):
         try:
@@ -303,25 +305,27 @@ def leggi_temp(bot, self):
         letture_perse = 0
     except Exception as ex:
         print(ex) #debug
-        '''avviso quando il timout di comunicazione con arduino scade'''
-        #TODO capire perche non esegue il codice
-        letture_perse += 1
-        if letture_perse * int(config['bot_timer']) >= int(config['bot_arduino_timeout']):
-            txt = emojilist['avviso']+" c'è un problema di comunicazione "+emojilist['avviso']
-            txt += "\n\nnon riesco a comunicare con la caldaia\n\n"
-            txt += "controllare la connessione di arduino\n"
-            txt += "oppure contattare il programmatore"
-            
-            #TODO mettere il controllo su ogni funzione 
-            #con un if controllo(chat_id, livello autorizzazione["r" o "rw"]): esegui 
-            print("invio avviso disconnessione")
-            try:
-                #invio il problema a tutti gli utenti
-                for chat_id in whitelist.keys():
-                    bot.send_message(chat_id=chat_id, text=txt)
-                letture_perse = 0
-            except Exception as ex:
-                    print(ex)
+        #se timeout infinito
+        if config['bot_arduino_timeout'] is not 'I':
+            '''avviso quando il timout di comunicazione con arduino scade'''
+            #TODO capire perche non esegue il codice
+            letture_perse += 1
+            if letture_perse * int(config['bot_timer']) >= int(config['bot_arduino_timeout']):
+                txt = emojilist['avviso']+_(" c'è un problema di comunicazione ")+emojilist['avviso']
+                txt += _("\n\nnon riesco a comunicare con la caldaia\n\n")
+                txt += _("controllare la connessione di arduino\n")
+                txt += _("oppure contattare il programmatore")
+                
+                #TODO mettere il controllo su ogni funzione 
+                #con un if controllo(chat_id, livello autorizzazione["r" o "rw"]): esegui 
+                print("invio avviso disconnessione")
+                try:
+                    #invio il problema a tutti gli utenti
+                    for chat_id in whitelist.keys():
+                        bot.send_message(chat_id=chat_id, text=txt)
+                    letture_perse = 0
+                except Exception as ex:
+                        print(ex)
     else:
         '''
         qui procedo a elaborare i dati provenienti da arduino
@@ -342,15 +346,15 @@ def temp(bot, update, chat_id=-1):
             print("invio temperatura")
             print(ino.get_all_data())
             
-            txt = "data ultima lettura: "+ino.get_by_name('date')+"\n\n"
-            txt += "Temp pc: "+str(ino.get_by_name('Temp1'))+"°C\n"
-            txt += "Temp ambiente: "+str(ino.get_by_name('Temp2'))+"°C"
+            txt = _("data ultima lettura: ")+ino.get_by_name('date')+"\n\n"
+            txt += _("Temp pc: ")+str(ino.get_by_name('Temp1'))+"°C\n"
+            txt += _("Temp ambiente: ")+str(ino.get_by_name('Temp2'))+"°C"
         except Exception as ex:
             print(ex)
-            txt = emojilist['avviso']+" c'è un problema di comunicazione "+emojilist['avviso']
-            txt += "\n\nnon ci sono dati da mostrare\n\n"
-            txt += "controllare la connessione di arduino\n"
-            txt += "oppure contattare il programmatore"
+            txt = emojilist['avviso']+_(" c'è un problema di comunicazione ")+emojilist['avviso']
+            txt += _("\n\nnon ci sono dati da mostrare\n\n")
+            txt += _("controllare la connessione di arduino\n")
+            txt += _("oppure contattare il programmatore")
             
         print(chat_id) #debug
         try:
@@ -412,7 +416,7 @@ def reconfig(bot, update, chat_id):
             global config
             config = dataParser(leggi_file("config.txt"))
             carica_whitelist()
-            txt = "Riconfigurato "+emojilist['spunta_ok']
+            txt = _("Riconfigurato ")+emojilist['spunta_ok']
             bot.send_message(chat_id=chat_id, text=txt)
         except Exception as ex:
             print(ex)
@@ -430,7 +434,7 @@ def menu_parser(bot, update):
         # map the inputs to the function blocks
         options = {menulist['LEGGI_TEMP'] : temp,
                    menulist['RECONFIG'] : reconfig,
-                   #4 : sqr,
+                   menulist['HELP'] : help,
                    #9 : sqr,
                    #2 : even,
                    #3 : prime,
@@ -461,8 +465,8 @@ def main():
     dp.add_handler(CommandHandler("start", start))
     updater.dispatcher.add_handler(CallbackQueryHandler(menu_parser))
     
-    dp.add_handler(CommandHandler("help", help))
-    dp.add_handler(CommandHandler("temp", temp))
+    #dp.add_handler(CommandHandler("help", help))
+    #dp.add_handler(CommandHandler("temp", temp))
 #    dp.add_handler(CommandHandler("status", status))
     
     '''

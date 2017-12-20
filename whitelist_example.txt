@@ -1,3 +1,3 @@
-#chat_id:username:privileges
-534565:admin:"rw"
-323424:user:"r"
+#chat_id:username:language:privileges
+534565:admin:it:rw
+323424:user:en:r

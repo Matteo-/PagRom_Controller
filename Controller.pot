@@ -1,0 +1,82 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR ORGANIZATION
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"POT-Creation-Date: 2017-12-20 00:32+CET\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: ENCODING\n"
+"Generated-By: pygettext.py 1.5\n"
+
+
+#: Controller.py:229
+msgid "non hai i privilegi necessari per proseguire "
+msgstr ""
+
+#: Controller.py:239
+msgid "nop"
+msgstr ""
+
+#: Controller.py:240
+msgid "leggi temperatura"
+msgstr ""
+
+#: Controller.py:241
+msgid "riconfigura"
+msgstr ""
+
+#: Controller.py:251
+msgid "ciao! usa /help per spawnare il manuale"
+msgstr ""
+
+#: Controller.py:312 Controller.py:352
+msgid " c'è un problema di comunicazione "
+msgstr ""
+
+#: Controller.py:313
+msgid ""
+"\n"
+"\n"
+"non riesco a comunicare con la caldaia\n"
+"\n"
+msgstr ""
+
+#: Controller.py:314 Controller.py:354
+msgid ""
+"controllare la connessione di arduino\n"
+msgstr ""
+
+#: Controller.py:315 Controller.py:355
+msgid "oppure contattare il programmatore"
+msgstr ""
+
+#: Controller.py:347
+msgid "data ultima lettura: "
+msgstr ""
+
+#: Controller.py:348
+msgid "Temp pc: "
+msgstr ""
+
+#: Controller.py:349
+msgid "Temp ambiente: "
+msgstr ""
+
+#: Controller.py:353
+msgid ""
+"\n"
+"\n"
+"non ci sono dati da mostrare\n"
+"\n"
+msgstr ""
+
+#: Controller.py:417
+msgid "Riconfigurato "
+msgstr ""
+
