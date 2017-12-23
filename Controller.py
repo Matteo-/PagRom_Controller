@@ -11,6 +11,7 @@ logging.basicConfig(filename='Controller.log',
 
 logger = logging.getLogger(__name__)
 
+#funzioni di utilità
 def leggi_file(file):
     f = open(file, "r") 
     return f.read().strip()
@@ -214,7 +215,29 @@ ino = ComArduino(config)
 ##################################### Telegram bot #############################
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+#traduzioni
 import gettext
+#_ = lambda s: s
+_ = gettext.gettext
+try:
+    en = gettext.translation('Controller', localedir='locale', languages=['en'])
+    en.install()
+except Exception as ex:
+    print(ex)
+print(_("non hai i privilegi necessari per proseguire "))
+
+def imposta_lingua(chat_id):
+    try:
+        if whitelist[chat_id]['lingua'] == 'en':
+            en.install()
+        if whitelist[chat_id]['lingua'] == 'it':
+            it.install()
+        if whitelist[chat_id]['lingua'] == 'ro':
+            ro.install()
+    except Exception as ex:
+        #print(ex)
+        en.install()
 
 def auth(bot, chat_id, auth_lvl):
     accesso = True
@@ -226,9 +249,12 @@ def auth(bot, chat_id, auth_lvl):
         print(ex)
         accesso = False
     
+    imposta_lingua(chat_id)
+    
     if not accesso:
         txt = _("non hai i privilegi necessari per proseguire ")+emojilist['lucchetto']
         bot.send_message(chat_id=chat_id, text=txt)
+    
     return accesso
     
 #diziaonario per indicizzare le voci di menu
@@ -311,18 +337,17 @@ def leggi_temp(bot, self):
             #TODO capire perche non esegue il codice
             letture_perse += 1
             if letture_perse * int(config['bot_timer']) >= int(config['bot_arduino_timeout']):
-                txt = emojilist['avviso']+_(" c'è un problema di comunicazione ")+emojilist['avviso']
-                txt += _("\n\nnon riesco a comunicare con la caldaia\n\n")
-                txt += _("controllare la connessione di arduino\n")
-                txt += _("oppure contattare il programmatore")
-                
-                #TODO mettere il controllo su ogni funzione 
-                #con un if controllo(chat_id, livello autorizzazione["r" o "rw"]): esegui 
                 print("invio avviso disconnessione")
                 try:
                     #invio il problema a tutti gli utenti
                     for chat_id in whitelist.keys():
+                        imposta_lingua(chat_id)
+                        txt = emojilist['avviso']+_(" c'è un problema di comunicazione ")+emojilist['avviso']
+                        txt += _("\n\nnon riesco a comunicare con la caldaia\n\n")
+                        txt += _("controllare la connessione di arduino\n")
+                        txt += _("oppure contattare il programmatore")
                         bot.send_message(chat_id=chat_id, text=txt)
+                        
                     letture_perse = 0
                 except Exception as ex:
                         print(ex)
@@ -359,53 +384,12 @@ def temp(bot, update, chat_id=-1):
         print(chat_id) #debug
         try:
             if chat_id == -1:
-                print("invio da /tmp")
                 update.message.reply_text(txt)
             else:
-                print("invio da inline botton")
                 bot.send_message(chat_id=chat_id, text=txt)
         except Exception as ex:
             print(ex)
                                   
-
-'''
-def alarm(bot, job):
-    """Send the alarm message."""
-    bot.send_message(job.context, text='Beep!')
-
-def set_timer(bot, update, args, job_queue, chat_data):
-    """Add a job to the queue."""
-    chat_id = update.message.chat_id
-    try:
-        # args[0] should contain the time for the timer in seconds
-        due = int(args[0])
-        if due < 0:
-            update.message.reply_text('Sorry we can not go back to future!')
-            return
-
-        # Add job to queue
-        job = job_queue.run_once(alarm, due, context=chat_id)
-        chat_data['job'] = job
-
-        update.message.reply_text('Timer successfully set!')
-
-    except (IndexError, ValueError):
-        update.message.reply_text('Usage: /set <seconds>')
-
-
-def unset(bot, update, chat_data):
-    """Remove the job if the user changed their mind."""
-    if 'job' not in chat_data:
-        update.message.reply_text('You have no active timer')
-        return
-
-    job = chat_data['job']
-    job.schedule_removal()
-    del chat_data['job']
-
-    update.message.reply_text('Timer successfully unset!')
-'''
-
 def error(bot, update, error):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, error)
@@ -467,7 +451,7 @@ def main():
     
     #dp.add_handler(CommandHandler("help", help))
     #dp.add_handler(CommandHandler("temp", temp))
-#    dp.add_handler(CommandHandler("status", status))
+    #dp.add_handler(CommandHandler("status", status))
     
     '''
     dp.add_handler(CommandHandler("set", set_timer,
@@ -484,9 +468,6 @@ def main():
     updater.start_polling()
     print("[TELEGRAM_BOT] avviato")
 
-    # Block until you press Ctrl-C or the process receives SIGINT, SIGTERM or
-    # SIGABRT. This should be used most of the time, since start_polling() is
-    # non-blocking and will stop the bot gracefully.
     updater.idle()
 
 
