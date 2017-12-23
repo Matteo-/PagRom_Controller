@@ -219,7 +219,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 #traduzioni
 import gettext
 #_ = lambda s: s
-_ = gettext.gettext
+#_ = gettext.gettext
 try:
     en = gettext.translation('Controller', localedir='locale', languages=['en'])
     en.install()
