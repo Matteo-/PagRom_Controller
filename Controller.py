@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #TODO ogni sezione dovra diventare un oggetto
+#TODO creare funzione broadcast per invio messaggi alla white list
 ################################## utils #######################################
 import logging
 
@@ -219,10 +220,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 #traduzioni
 import gettext
 #_ = lambda s: s
-#_ = gettext.gettext
+_ = gettext.gettext
 try:
     en = gettext.translation('Controller', localedir='locale', languages=['en'])
-    en.install()
+    #en.install()
 except Exception as ex:
     print(ex)
 print(_("non hai i privilegi necessari per proseguire "))
@@ -237,7 +238,7 @@ def imposta_lingua(chat_id):
             ro.install()
     except Exception as ex:
         #print(ex)
-        en.install()
+        _ = lambda s: s
 
 def auth(bot, chat_id, auth_lvl):
     accesso = True
@@ -270,24 +271,29 @@ keyboard = [[InlineKeyboardButton(_("help"), callback_data=menulist['HELP']),
 
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
-def start(bot, update):
-    chat_id = update.message.chat_id
-    if auth(bot, chat_id, "r"):
-        try:
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            update.message.reply_text(_("ciao! usa /help per spawnare il manuale"), reply_markup=reply_markup)  
-        except Exception as ex:
-            print(ex)
+def start(bot, update, chat_id=0):
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    if chat_id == 0:
+        chat_id = update.message.chat_id
+        if auth(bot, chat_id, "r"):
+            try:
+                update.message.reply_text(_("menu principale:"), reply_markup=reply_markup)  
+            except Exception as ex:
+                print(ex)
+        else:
+            print("tentativo entrata da parte di "+chat_id)
     else:
-        print("tentativo entrata da parte di "+chat_id)
+        if auth(bot, chat_id, "r"):
+            try:
+                bot.send_message(chat_id=chat_id, text=_("menu principale:"), reply_markup=reply_markup)
+            except Exception as ex:
+                print(ex)
     
 def help(bot, update, chat_id):
-    chat_id = update.message.chat_id
     if auth(bot, chat_id, "r"):
         try:
             manuale = leggi_file("manuale.txt")
-            update.message.reply_text(manuale)
+            bot.send_message(chat_id=chat_id, text=manuale)
         except Exception as ex:
             print(ex)
 
@@ -427,6 +433,7 @@ def menu_parser(bot, update):
         }
         
         options[int(query.data)](bot, update, chat_id=query.message.chat_id)
+        start(bot, update, query.message.chat_id)
         
         #bot.send_message(chat_id=query.message.chat_id, text="Selected option: {}".format(query.data))
     except Exception as ex:
