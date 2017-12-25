@@ -28,6 +28,9 @@
  * struttura per creare dei timer semiautomatici
  * che mi permettono di eseguire varie funzioni 
  * ad un certo intervallo di tempo
+ * 
+ * grazie a questi evito il rischio di overflow 
+ * caousato dalla lettura del tempo di run
  */
 typedef struct T {
   int intervallo;
@@ -55,7 +58,7 @@ typedef struct T {
 } TIMER;
 
 TIMER invio_dati(1000);                       // tempo di invioo dati in ms
-TIMER lettura_temperature(1000);
+TIMER lettura_temperature(200);
 
 typedef struct {
   float tmax = 80.0f,
@@ -71,10 +74,9 @@ typedef struct {
        */
       Serial.print("Temp1=");
       Serial.print(t1);
-      Serial.print(" ");
-      Serial.print("Temp2=");
+      Serial.print(" Temp2=");
       Serial.print(t2);
-      Serial.print("Peso=");
+      Serial.print(" Peso=");
       Serial.print(peso);
       Serial.println();
   }
@@ -109,9 +111,11 @@ void invioDati(){
  * legge la temperatura dei sensori
  */
 void leggoTemperature() {
-  sensors.requestTemperatures();          // invio il comando di richiesta temperatura
-  data.t1 = sensors.getTempCByIndex(CALDAIA);
-  data.t2 = sensors.getTempCByIndex(BOILER);
+  if ( lettura_temperature.allarme() ) {
+    sensors.requestTemperatures();          // invio il comando di richiesta temperatura
+    data.t1 = sensors.getTempCByIndex(CALDAIA);
+    data.t2 = sensors.getTempCByIndex(BOILER);
+  }
 }
 
 /*
@@ -139,6 +143,10 @@ int controllerSegatura() {
   
 }
 
+/**
+ * aggiorno tutti i timer e metto in pausa il ciclo i loop 
+ * questa funzione va eseguita alla fine del ciclo loop
+ */
 void aggiorna_timer() {
   invio_dati.aggiorna(TEMPO_CICLO);
   lettura_temperature.aggiorna(TEMPO_CICLO);
