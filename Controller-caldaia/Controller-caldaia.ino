@@ -1,7 +1,11 @@
 /** 
  *  Arduino DS18B20 temp sensor tutorial http://www.ardumotive.com/how-to-use-the-ds18b20-temperature-sensor-en.html
  *  
- *  TODO aggiungere schema elettrico
+ *  rosso = gnd
+ *  nero = gnd
+ *  giallo = collegato a vcc tramite resistenza (tot) e ad arduino su pin digitale di lettura
+ *  
+ *  è possibile collegare più termometri in serie
  */
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -20,45 +24,11 @@
  */
 #include <HX711.h>
 
-/****************************** dati del controller ***************************/
-
-#define TEMPO_CICLO 10                        // tempo di delay del ciclo loop in ms
-
 /**
- * struttura per creare dei timer semiautomatici
- * che mi permettono di eseguire varie funzioni 
- * ad un certo intervallo di tempo
- * 
- * grazie a questi evito il rischio di overflow 
- * caousato dalla lettura del tempo di run
+ * libreria timer github: https://github.com/JChristensen/Timer
  */
-typedef struct T {
-  int intervallo;
-  int trascorso;
-
-  T(int _intervallo) {
-    intervallo = _intervallo;
-    trascorso = 0;
-  }
-
-  bool allarme() {
-    if(trascorso >= intervallo) {
-      trascorso = 0;
-      return true;
-    }
-    else {
-      return false;
-    }
-  }
-
-  void aggiorna(int tempo_ciclo) {
-      trascorso += tempo_ciclo;
-  }
-  
-} TIMER;
-
-TIMER invio_dati(1000);                       // tempo di invioo dati in ms
-TIMER lettura_temperature(200);
+#include <Event.h>
+#include <Timer.h>
 
 typedef struct {
   float tmax = 80.0f,
@@ -83,7 +53,11 @@ typedef struct {
   
 } DATA;
 
-DATA data;
+/****************************** dati del controller ***************************/
+DATA data;                                    // dati importanti
+
+//TIMER
+Timer t;
 
 //TERMOMETRI
 #define ONE_WIRE_BUS 2                        // il pin 2 viene usato per il bus Onewire
@@ -103,19 +77,17 @@ HX711 bilancia(DOUT, CLK);
  * formatta e invia i dati al computer centrale
  */
 void invioDati(){
-  if ( invio_dati.allarme() )
-    data.invio();
+  data.invio();
 }
 
 /**
  * legge la temperatura dei sensori
  */
 void leggoTemperature() {
-  if ( lettura_temperature.allarme() ) {
-    sensors.requestTemperatures();          // invio il comando di richiesta temperatura
-    data.t1 = sensors.getTempCByIndex(CALDAIA);
-    data.t2 = sensors.getTempCByIndex(BOILER);
-  }
+  sensors.requestTemperatures();          // invio il comando di richiesta temperatura
+  data.t1 = sensors.getTempCByIndex(CALDAIA);
+  data.t2 = sensors.getTempCByIndex(BOILER);
+  Serial.println("leggo");
 }
 
 /*
@@ -142,18 +114,6 @@ void rovescioSegatura() {
 int controllerSegatura() {
   
 }
-
-/**
- * aggiorno tutti i timer e metto in pausa il ciclo i loop 
- * questa funzione va eseguita alla fine del ciclo loop
- */
-void aggiorna_timer() {
-  invio_dati.aggiorna(TEMPO_CICLO);
-  lettura_temperature.aggiorna(TEMPO_CICLO);
-  delay(TEMPO_CICLO);
-  
-}
-
 /************************************** main **********************************/
 
 void setup(void)
@@ -167,11 +127,15 @@ void setup(void)
   //BILANCIA
   bilancia.set_scale(calibration_factor); // imposto il fattore di calibrazione
   bilancia.tare(20);                      // imposto la tara mettendo a 0 la bilancia
+
+  //TIMER
+  t.every(1000, invioDati);
+  //t.every(200, leggoTemperature);
 }
 
 void loop(void)
 { 
-  leggoTemperature();
-  invioDati();
-  aggiorna_timer();
+  //leggoTemperature();
+  //invioDati();
+  t.update();
 }
