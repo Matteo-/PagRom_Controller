@@ -30,12 +30,22 @@
 #include <Event.h>
 #include <Timer.h>
 
+/**
+ * accel stepper per il motore passo passo: https://github.com/adafruit/AccelStepper
+ * 
+ * dir = 
+ * 
+ */
+#include <AccelStepper.h>
+
 typedef struct {
   float tmax = 80.0f,
         tmin = 20.0f,
         t1 = .0f,
         t2 = .0f;                             // temperature (cambiare nome)
-  int peso = 0;
+  int segatura_aggiunta = 0;
+  byte livello_segatura = 0;
+  bool pompa1, pompa2;
 
   void invio() {
       /**
@@ -47,7 +57,7 @@ typedef struct {
       Serial.print(" Temp2=");
       Serial.print(t2);
       Serial.print(" Peso=");
-      Serial.print(peso);
+      Serial.print(segatura_aggiunta);
       Serial.println();
   }
   
@@ -71,6 +81,11 @@ enum Termometri {CALDAIA, BOILER, ESTERNO};   // enum con i nomi dei sensori di 
 const float calibration_factor = 391.76f;     // valore di calibrazione della bilancia, valore fisso NON MODIFICARE
 HX711 bilancia(DOUT, CLK);
 
+//STEPPER SEGATURA
+#define STEP 3                                // pin di step
+#define DIR 4                                 // pin di direzione
+AccelStepper stepper(AccelStepper::DRIVER, STEP, DIR);
+
 /************************************ funzioni ********************************/
 
 /**
@@ -87,7 +102,6 @@ void leggoTemperature() {
   sensors.requestTemperatures();          // invio il comando di richiesta temperatura
   data.t1 = sensors.getTempCByIndex(CALDAIA);
   data.t2 = sensors.getTempCByIndex(BOILER);
-  Serial.println("leggo");
 }
 
 /*
@@ -128,14 +142,34 @@ void setup(void)
   bilancia.set_scale(calibration_factor); // imposto il fattore di calibrazione
   bilancia.tare(20);                      // imposto la tara mettendo a 0 la bilancia
 
+  //STEPPER SEGATURA
+  stepper.setSpeed(500);
+  stepper.setMaxSpeed(2000);
+  stepper.setAcceleration(300);
+  stepper.setCurrentPosition(0);
+  stepper.moveTo(10000);    //debug
+
   //TIMER
-  t.every(1000, invioDati);
+  //t.every(1000, invioDati);
   //t.every(200, leggoTemperature);
+
+  //TESTING
+  //pinMode(11, OUTPUT);
+  //digitalWrite(11, HIGH);
+  //pinMode(12, INPUT);
 }
 
 void loop(void)
 { 
   //leggoTemperature();
   //invioDati();
+  
+  // If at the end of travel go to the other end DEBUG
+  if (stepper.distanceToGo() == 0)
+    stepper.moveTo(-stepper.currentPosition());
+
+  //Serial.println(digitalRead(12));  //debug
+    
   t.update();
+  stepper.run();
 }
