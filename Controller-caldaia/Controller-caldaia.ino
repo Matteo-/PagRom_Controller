@@ -103,6 +103,7 @@ enum Termometri {CALDAIA, BOILER, ESTERNO};   // enum con i nomi dei sensori di 
 #define CLK A0
 const float calibration_factor = 391.76f;     // valore di calibrazione della bilancia, valore fisso NON MODIFICARE
 HX711 bilancia(DOUT, CLK);
+int PAYLOAD = data.payload;
 
 //STEPPER SEGATURA
 #define STEP 3                                // pin di step
@@ -112,8 +113,10 @@ AccelStepper stepper(AccelStepper::DRIVER, STEP, DIR);
 /************************************ funzioni ********************************/
 
 void verbose(String s, bool newline = true) {
-  if(data.VERBOSE) Serial.print(s);
-  if(newline) Serial.println();
+  if(data.VERBOSE) {
+    Serial.print(s);
+    Serial.println();
+  }
 }
 
 /**
@@ -130,6 +133,15 @@ void leggoTemperature() {
   } else {
     verbose("not read temp");  //debug
   }
+
+  /**
+   * imposto il payload della bilancia il base alla temperatura
+   * 
+   * se la temperatura ha raggiunto il regime impostato allora utilizzo il payload minimo di mantenimento
+   * altrimenti imposto il payload normale
+   */
+  PAYLOAD = (data.t1 >= data.tmax) ? data.payload_mantenimento : data.payload;
+
 }
 
 /*
@@ -179,17 +191,24 @@ void addSegatura() {
  */
 int controllerSegatura() {
   if (data.aggiungi_segatura) {
-    if (pesoSegatura() >= data.payload ) {
-        verbose("fermo coclea silos");
-        data.coclea_silos = false;
-        data.segatura_aggiunta = pesoSegatura();
-        data.aggiungi_segatura = false;
-        t.after(ATTESA_SCARICO_SEGATURA, svuotaSegatura);
-        //ricalco il prossimo carico
-        //e imposto il timer che lo richiamerà
-        //TODO impostare payload di mantenimento quando la temperatura è arrivata a regime
-        verbose("calcolo temporizzazione prossimo carico");
-        t.after(10000, addSegatura);
+
+    if (pesoSegatura() >= PAYLOAD ) {
+      data.aggiungi_segatura = false;         //il carico utile è stato raggionto quindi fermo la procedura
+        
+      verbose("fermo coclea silos");
+      data.coclea_silos = false;
+      
+      data.segatura_aggiunta = pesoSegatura();    // leggo e aggiorno la segatura aggiunta
+      stato();
+
+      //dopo aver raggiunto il carico utile lo svuoto 
+      t.after(ATTESA_SCARICO_SEGATURA, svuotaSegatura);
+      
+      //ricalco il prossimo carico
+      //e imposto il timer che lo richiamerà
+      verbose("calcolo temporizzazione prossimo carico");
+      t.after(10000, addSegatura);
+      
     } else {
       if(data.coclea_silos == false) {
         //avvio coclea chiama segatura (set pin to high)
@@ -197,6 +216,7 @@ int controllerSegatura() {
         verbose("avvio coclea silos");
       }
     }
+    
   } else {
     data.segatura_aggiunta = 0;
   }
@@ -207,6 +227,8 @@ int controllerSegatura() {
   } else {
     data.stepper_run = true;
   }
+
+  // TODO controllare livello segatura
 }
 
 /**
@@ -269,3 +291,8 @@ void loop(void)
   t.update();
   stepper.run();
 }
+
+void serialEvent() {
+  
+}
+
