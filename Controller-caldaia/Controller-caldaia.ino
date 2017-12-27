@@ -38,6 +38,9 @@
  */
 #include <AccelStepper.h>
 
+//lista funzioni da utilizzare in serial event
+enum func {SET_TMAX, SET_TMIN, SET_TCRIT, SET_PAYLOAD, SET_PAYLOAD_MAN};
+
 typedef struct {
 
   bool VERBOSE = false;                          // attiva disattiva il verbose mode
@@ -45,6 +48,7 @@ typedef struct {
   //TEMPERATURA
   float tmax = 80.0f,
         tmin = 20.0f,
+        tcrit = 110.0f,
         t1 = .0f,
         t2 = .0f;                             // temperature (cambiare nome)
   bool pompa1, pompa2;
@@ -65,10 +69,20 @@ typedef struct {
        * 
        */
       Serial.print("DATA ");
-      Serial.print("T1=");
+      Serial.print("TM=");
+      Serial.print(tmax);
+      Serial.print(" Tm=");
+      Serial.print(tmin);
+      Serial.print(" Tc=");
+      Serial.print(tcrit);
+      Serial.print(" T1=");
       Serial.print(t1);
       Serial.print(" T2=");
       Serial.print(t2);
+      Serial.print(" PLD=");
+      Serial.print(payload);
+      Serial.print(" PLDman=");
+      Serial.print(payload_mantenimento);
       Serial.print(" SegAgg=");
       Serial.print(segatura_aggiunta);
       Serial.print(" ControlSeg=");
@@ -115,7 +129,7 @@ AccelStepper stepper(AccelStepper::DRIVER, STEP, DIR);
 void verbose(String s, bool newline = true) {
   if(data.VERBOSE) {
     Serial.print(s);
-    Serial.println();
+    if(newline) Serial.println();
   }
 }
 
@@ -292,7 +306,32 @@ void loop(void)
   stepper.run();
 }
 
+/**
+ * funzione di settaggio paratri
+ */
 void serialEvent() {
+  int f = Serial.parseInt();
+  float val = Serial.parseFloat();
+
+  switch(f) {
+    case SET_TMAX:
+      data.tmax = val;
+      break;
+    case SET_TMIN:
+      data.tmin = val;
+      break;
+    case SET_TCRIT:
+      data.tcrit = val;
+      break;
+    case SET_PAYLOAD:
+      data.payload = val;
+      break;
+    case SET_PAYLOAD_MAN:
+      data.payload_mantenimento = val;
+      break;
+    default:
+      break;
+  }
   
 }
 
