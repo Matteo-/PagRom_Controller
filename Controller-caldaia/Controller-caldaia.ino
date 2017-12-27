@@ -38,9 +38,6 @@
  */
 #include <AccelStepper.h>
 
-//lista funzioni da utilizzare in serial event
-enum func {SET_TMAX, SET_TMIN, SET_TCRIT, SET_PAYLOAD, SET_PAYLOAD_MAN};
-
 typedef struct {
 
   bool VERBOSE = false;                          // attiva disattiva il verbose mode
@@ -55,7 +52,7 @@ typedef struct {
   
   //segatura
   bool stepper_run = false;   //stato dello stepper
-  byte livello_segatura = 0;    //livello segatura silos
+  int livello_segatura = 0;    //livello segatura silos
   int segatura_aggiunta = 0;    //segatura aggiunta 
   bool aggiungi_segatura = false;   //flag di controllo per l'aggiunta di segatura
   int payload = 120;                 //grammi di segatura da aggiungere
@@ -69,28 +66,17 @@ typedef struct {
        * 
        */
       Serial.print("DATA ");
-      Serial.print("TM=");
-      Serial.print(tmax);
-      Serial.print(" Tm=");
-      Serial.print(tmin);
-      Serial.print(" Tc=");
-      Serial.print(tcrit);
-      Serial.print(" T1=");
-      Serial.print(t1);
-      Serial.print(" T2=");
-      Serial.print(t2);
-      Serial.print(" PLD=");
-      Serial.print(payload);
-      Serial.print(" PLDman=");
-      Serial.print(payload_mantenimento);
-      Serial.print(" SegAgg=");
-      Serial.print(segatura_aggiunta);
-      Serial.print(" ControlSeg=");
-      Serial.print(aggiungi_segatura);
-      Serial.print(" Step=");
-      Serial.print(stepper_run);
-      Serial.print(" CclSilos=");
-      Serial.print(coclea_silos);
+      Serial.print("TM=");        Serial.print(tmax);
+      Serial.print(" Tm=");       Serial.print(tmin);
+      Serial.print(" Tc=");       Serial.print(tcrit);
+      Serial.print(" T1=");       Serial.print(t1);
+      Serial.print(" T2=");       Serial.print(t2);
+      Serial.print(" PLD=");      Serial.print(payload);
+      Serial.print(" PLDman=");   Serial.print(payload_mantenimento);
+      Serial.print(" SegAgg=");   Serial.print(segatura_aggiunta);
+      Serial.print(" CtrlSeg=");  Serial.print(aggiungi_segatura);
+      Serial.print(" Step=");     Serial.print(stepper_run);
+      Serial.print(" CclSilos="); Serial.print(coclea_silos);
       Serial.println();
   }
   
@@ -214,6 +200,7 @@ int controllerSegatura() {
       
       data.segatura_aggiunta = pesoSegatura();    // leggo e aggiorno la segatura aggiunta
       stato();
+      data.segatura_aggiunta = 0;
 
       //dopo aver raggiunto il carico utile lo svuoto 
       t.after(ATTESA_SCARICO_SEGATURA, svuotaSegatura);
@@ -286,7 +273,7 @@ void setup(void)
   t.every(2000, leggoTemperature);
 
   //TESTING
-  t.after(1000, test);
+  test();
   t.after(3000, addSegatura);
 
   //BILANCIA
@@ -310,6 +297,10 @@ void loop(void)
  * funzione di settaggio paratri
  */
 void serialEvent() {
+
+  //lista funzioni da utilizzare in serial event
+  enum func {SET_TMAX, SET_TMIN, SET_TCRIT, SET_PAYLOAD, SET_PAYLOAD_MAN};
+  
   int f = Serial.parseInt();
   float val = Serial.parseFloat();
 
