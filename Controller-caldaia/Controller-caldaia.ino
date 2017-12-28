@@ -254,6 +254,7 @@ void setup(void)
 {
   Serial.begin(9600);
   Serial.println("handshake");    // invio "handshake" per la connessione automatica a python
+  delay(2000);
 
   //TERMOMETRI
   Serial.print("Inizializzazione Termometri...");

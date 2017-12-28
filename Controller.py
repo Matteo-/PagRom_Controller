@@ -1,216 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#TODO ogni sezione dovra diventare un oggetto
 #TODO creare funzione broadcast per invio messaggi alla white list
-################################## utils #######################################
-import logging
+from utils import *
+from DataBase import DataBase
+from ComArduino import ComArduino
 
-# abilito il log
-logging.basicConfig(filename='Controller.log',
-                    format='%(asctime)s|%(levelname)s| %(message)s',
-                    level=logging.INFO)
-
-logger = logging.getLogger(__name__)
-
-#funzioni di utilità
-def leggi_file(file):
-    f = open(file, "r") 
-    return f.read().strip()
-
-val = -1 
-def auto():
-    global val
-    val += 1
-    return val
-
-'''
-formatta i dati provenienti da arduino 
-dividendoli in un dizionario
-se i dati non sono formattabili 
-ritorna dizionario vuoto
-'''
-def dataParser(datain):
-    data = {}
-    elements = []
-    #splitto la stringa nei vari elementi
-    try:
-        row = datain.strip().split("\n")
-        for el in row:
-            try:
-                #elimino i commenti
-                if el[0] != '#':
-                    elements.extend(el.strip().split())
-            except:
-                pass
-    except:
-        return data
-    
-    for el in elements:
-        try:
-            name,value = el.split("=")
-            data[name] = value
-        except:
-            pass
-
-    return data
-
-'''
-dizionario che contiene tutte le configurazioni del Controller
-'''
-config = dataParser(leggi_file("config.txt"))
-
-'''
-whitelist per il controllo delle autorizzazioni
-ci possono essere 2 livelli 
-    -"r" privilegi di lettura:
-        da accesso a tutte le funzioni che permettono di leggere i dati
-    -"rw" privilegi di lettura e scrittura:
-        da accesso ad ogni tipo di funzione quindi possibilita di leggere e scrivere
-'''
-whitelist = {}
-def carica_whitelist():
-    global whitelist
-    lista = leggi_file("whitelist.txt").strip().split()
-    for row in lista:
-        try:
-            if row[0] is not '#':
-                chat_id,nome,lingua,privilegi = row.split(':')
-                whitelist[int(chat_id)] = {'nome':nome, 'privilegi':privilegi, 'lingua':lingua}
-        except:
-            pass
 
 carica_whitelist()
 
-##################################### Emoji ####################################
-from emoji import emojize
-#url emoji http://www.unicode.org/emoji/charts/emoji-list.html
 
-emojilist = {}
-#emojilist['sviluppatore'] = emojize(":man technologist:", use_aliases=True)
-emojilist['OK'] = emojize(":OK hand:", use_aliases=True)
-emojilist['pollicesu'] = emojize(":thumbs up:", use_aliases=True)
-emojilist['lucepericolo'] = emojize(":police car light:", use_aliases=True)
-emojilist['timer'] = emojize(":timer clock:", use_aliases=True)
-emojilist['avviso'] = emojize(":megaphone:", use_aliases=True)
-emojilist['telescopio'] = emojize(":telescope:", use_aliases=True)
-emojilist['chart'] = emojize(":chart increasing:", use_aliases=True)
-emojilist['lucchetto'] = emojize(":locked:", use_aliases=True)
-emojilist['avviso'] = emojize(":warning:", use_aliases=True)
-emojilist['spunta_ok'] = emojize(":heavy check mark:", use_aliases=True)
-emojilist['croce_non_ok'] = emojize(":cross mark:", use_aliases=True)
-emojilist['romania'] = emojize(":Romania:", use_aliases=True)
-emojilist['italia'] = emojize(":Italy:", use_aliases=True)
-emojilist['inglese'] = emojize(":United Kingdom:", use_aliases=True)
-
-##################################### DataBase #################################
-''' serve python-mysqldb --> apt install python-mysqldb '''
-import MySQLdb
-
-class DataBase:
-    
-    def __init__(self, config):
-        try:
-            self.db_connection = MySQLdb.connect(host=config['db_host'],
-                                 user=config['db_user'],
-                                 passwd=config['db_passwd'],
-                                 db=config['db_name'])
-            print("[DATABASE] connesso")
-        except:
-            print("[DATABASE] non riesco a connettermi al database")
-            quit()
-
-        # creo il cursore per utilizzare il database
-        self.db = self.db_connection.cursor()
-
-    #eseguo la query e aggiorno il database
-    #ritorno il risultato della query
-    def execute(self, query):
-        self.db.execute(query)
-        self.db_connection.commit()
-        return self.db.fetchall()
-
-    #chiude la connessione con il database
-    def close(self):
-        self.db_connection.close()
-
-#creo database
+#database
 db = DataBase(config)
 
-##################################### Arduino ##################################
-import serial
-import serial.tools.list_ports
-import time
-import datetime
-
-class ComArduino:
-    
-    def __init__(self, coonfig):
-        
-        self.ser = serial.Serial()
-        self.baudrate = config['ino_boudrate']
-        #dati prrovenienti da arduino
-        self.lettura = {}
-        
-        self.connect()
-        #TODO controllare connessione attraverso pyserial
-        print("[SERIALE] arduino connesso")
-        
-    def get_all_data(self):
-        return self.lettura
-    
-    def get_by_name(self, name):
-        return self.lettura[name]
-
-    def close(self):
-        self.ser.close()
-
-    #leggo i valori provenienti da arduino
-    def read(self, raw=False):
-        out = b""
-        try:
-            while(self.ser.inWaiting() > 0):
-                out += self.ser.read(1)
-        except:
-            print("[SERIALE] errore nella connessione con arduino")
-            #pulisco i dati
-            self.lettura = {}
-            #tento riconnessione
-            self.close()
-            self.connect()
-            raise Exception('Reading error')
-        
-        if not raw: 
-            try:
-                if out.decode() != "":
-                    self.lettura = dataParser(out.decode())
-                    self.lettura['date'] = '{:%d-%b-%Y %H:%M:%S}'.format(datetime.datetime.now())
-            except Exception as ex:
-                print(ex)  
-            return self.lettura
-        else:
-            return out.decode()
-
-    
-    """
-    ####### connessione tramite handshake #######
-    #   python----connect---->Arduino           #
-    #   python<---"handshake"----Arduino        #
-    #   connection DONE!                        #
-    #############################################
-    """
-    def connect(self):
-        ports = list(serial.tools.list_ports.comports())
-        for p in ports:
-            try:
-                self.ser = serial.Serial(p.device, self.baudrate)
-                time.sleep(1) #evito che arduino vada in reset
-                if self.read(raw=True).strip() == "handshake":
-                    break
-                else:
-                    ser.close()
-            except serial.SerialException as ex:
-                print(ex)
-
+#arduino
 ino = ComArduino(config)
 
 ##################################### Telegram bot #############################
@@ -365,7 +167,7 @@ def leggi_temp(bot, self):
             #in caso i dati siano corrotti o inesistenti
             last_read = ino.get_by_name('date')
             try:
-                db.execute("INSERT INTO temperatura (temp) VALUES ("+str(ino.get_by_name('Temp1'))+")")
+                db.execute("INSERT INTO temperatura (temp) VALUES ("+str(ino.get_by_name('T1'))+")")
             except Exception as ex:
                 print(ex)
         
@@ -378,8 +180,8 @@ def temp(bot, update, chat_id=-1):
             print(ino.get_all_data())
             
             txt = _("data ultima lettura: ")+ino.get_by_name('date')+"\n\n"
-            txt += _("Temp pc: ")+str(ino.get_by_name('Temp1'))+"°C\n"
-            txt += _("Temp ambiente: ")+str(ino.get_by_name('Temp2'))+"°C"
+            txt += _("Temp pc: ")+str(ino.get_by_name('T1'))+"°C\n"
+            txt += _("Temp ambiente: ")+str(ino.get_by_name('T2'))+"°C"
         except Exception as ex:
             print(ex)
             txt = emojilist['avviso']+_(" c'è un problema di comunicazione ")+emojilist['avviso']
